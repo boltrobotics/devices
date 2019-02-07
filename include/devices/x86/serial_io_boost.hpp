@@ -41,21 +41,17 @@ public:
     FLUSH_IN,
     FLUSH_OUT,
     FLUSH_INOUT
-  } FlashType;
+  } FlushType;
 
 // LIFECYCLE
 
   /**
-   * Ctor.
-   *
-   * @param port - serial IO port
-   * @param baud_rate - baud rate
-   * @param timeout - serial operation timeout in milliseconds
+   * Initialize members to default values, don't open the port.
    */
   SerialIOBoost();
 
   /**
-   * Dtor.
+   * Close the port.
    */
   ~SerialIOBoost();
 
@@ -99,7 +95,7 @@ public:
    *
    *  @see termios(3)
    */
-  int flush(FlashType queue_selector);
+  int flush(FlushType queue_selector);
 
   /**
    * @return bytes available on the serial port
@@ -244,7 +240,7 @@ inline void SerialIOBoost::setTimeout(uint32_t timeout_millis)
   timeout_ = timeout_millis;
 }
 
-inline int SerialIOBoost::flush(FlashType queue_selector)
+inline int SerialIOBoost::flush(FlushType queue_selector)
 {
   errno = 0;
   int rc = 0;

@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
-#ifndef _btr_SerialIOTermios_hpp__
-#define _btr_SerialIOTermios_hpp__
+#ifndef _btr_UartTermios_hpp__
+#define _btr_UartTermios_hpp__
 
 // SYSTEM INCLUDES
 #include <inttypes.h>
@@ -18,7 +18,7 @@ namespace btr
 /**
  * The class provides a send/receive interface to a serial port.
  */
-class SerialIOTermios
+class UartTermios
 {
 public:
 
@@ -42,12 +42,12 @@ public:
    * Ctor.
    *
    */
-  SerialIOTermios();
+  UartTermios();
 
   /**
    * Dtor.
    */
-  ~SerialIOTermios();
+  ~UartTermios();
 
 // OPERATIONS
 
@@ -152,7 +152,7 @@ private:
   uint8_t parity_;
   int port_;
 
-}; // class SerialIOTermios
+}; // class UartTermios
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // INLINE OPERATIONS
@@ -162,7 +162,7 @@ private:
 
 //============================================= LIFECYCLE ==========================================
 
-inline SerialIOTermios::SerialIOTermios()
+inline UartTermios::UartTermios()
   :
   port_name_(""),
   baud_rate_(),
@@ -172,14 +172,14 @@ inline SerialIOTermios::SerialIOTermios()
 {
 }
 
-inline SerialIOTermios::~SerialIOTermios()
+inline UartTermios::~UartTermios()
 {
   close();
 }
 
 //============================================= OPERATIONS =========================================
 
-inline int SerialIOTermios::open(
+inline int UartTermios::open(
     const char* port_name,
     uint32_t baud_rate,
     uint8_t data_bits,
@@ -250,7 +250,7 @@ inline int SerialIOTermios::open(
   return rc;
 }
 
-inline void SerialIOTermios::close()
+inline void UartTermios::close()
 {
   if (port_ != -1) {
     ::close(port_);
@@ -258,7 +258,7 @@ inline void SerialIOTermios::close()
   }
 }
 
-inline int SerialIOTermios::setTimeout(uint32_t timeout_millis)
+inline int UartTermios::setTimeout(uint32_t timeout_millis)
 {
   struct termios options;
   int rc = 0;
@@ -280,7 +280,7 @@ inline int SerialIOTermios::setTimeout(uint32_t timeout_millis)
   return rc;
 }
 
-inline int SerialIOTermios::flush(FlashType queue_selector)
+inline int UartTermios::flush(FlashType queue_selector)
 {
   int rc = 0;
 
@@ -301,14 +301,14 @@ inline int SerialIOTermios::flush(FlashType queue_selector)
   return rc;
 }
 
-inline uint32_t SerialIOTermios::available()
+inline uint32_t UartTermios::available()
 {
   uint32_t bytes_available;
   ioctl(port_, FIONREAD, &bytes_available);
   return bytes_available;
 }
 
-inline void SerialIOTermios::setReadMinimum(uint32_t bytes)
+inline void UartTermios::setReadMinimum(uint32_t bytes)
 {
   struct termios options;
   tcgetattr(port_, &options);
@@ -317,13 +317,13 @@ inline void SerialIOTermios::setReadMinimum(uint32_t bytes)
   tcsetattr(port_, TCSANOW, &options);
 }
 
-inline ssize_t SerialIOTermios::recv(char* buff, uint32_t bytes)
+inline ssize_t UartTermios::recv(char* buff, uint32_t bytes)
 {
   ssize_t rc = read(port_, buff, bytes);
   return rc;
 }
 
-inline ssize_t SerialIOTermios::send(const char* buff, uint32_t bytes, bool drain)
+inline ssize_t UartTermios::send(const char* buff, uint32_t bytes, bool drain)
 {
   ssize_t rc = write(port_, buff, bytes);
 
@@ -333,7 +333,7 @@ inline ssize_t SerialIOTermios::send(const char* buff, uint32_t bytes, bool drai
   return rc;
 }
 
-inline int SerialIOTermios::sendBreak(uint32_t duration)
+inline int UartTermios::sendBreak(uint32_t duration)
 {
   return tcsendbreak(port_, duration);
 }
@@ -347,7 +347,7 @@ inline int SerialIOTermios::sendBreak(uint32_t duration)
 
 //============================================= OPERATIONS =========================================
 
-inline int SerialIOTermios::getNativeBaud(int num)
+inline int UartTermios::getNativeBaud(int num)
 {
   int baud = B57600;
 
@@ -373,4 +373,4 @@ inline int SerialIOTermios::getNativeBaud(int num)
 
 } // namespace btr
 
-#endif // _btr_SerialIOTermios_hpp__
+#endif // _btr_UartTermios_hpp__

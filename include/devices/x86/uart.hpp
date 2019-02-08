@@ -1,8 +1,8 @@
-// Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
+// Copyright (C) 2017 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
-#ifndef _btr_SerialIOBoost_hpp__
-#define _btr_SerialIOBoost_hpp__
+#ifndef _btr_Uart_hpp__
+#define _btr_Uart_hpp__
 
 // SYSTEM INCLUDES
 #include <boost/asio.hpp>
@@ -25,7 +25,7 @@ namespace btr
 /**
  * The class provides a send/receive interface to a serial port.
  */
-class SerialIOBoost
+class Uart
 {
 public:
 
@@ -48,12 +48,12 @@ public:
   /**
    * Initialize members to default values, don't open the port.
    */
-  SerialIOBoost();
+  Uart();
 
   /**
    * Close the port.
    */
-  ~SerialIOBoost();
+  ~Uart();
 
 // OPERATIONS
 
@@ -162,7 +162,7 @@ private:
   size_t              bytes_transferred_;
   size_t              timeout_;
 
-}; // class SerialIOBoost
+}; // class Uart
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // INLINE OPERATIONS
@@ -172,7 +172,7 @@ private:
 
 //============================================= LIFECYCLE ==========================================
 
-inline SerialIOBoost::SerialIOBoost()
+inline Uart::Uart()
   :
   io_service_(),
   serial_port_(io_service_),
@@ -182,14 +182,14 @@ inline SerialIOBoost::SerialIOBoost()
 {
 }
 
-inline SerialIOBoost::~SerialIOBoost()
+inline Uart::~Uart()
 {
   close();
 }
 
 //============================================= OPERATIONS =========================================
 
-inline int SerialIOBoost::open(
+inline int Uart::open(
     const char* port_name,
     uint32_t baud_rate,
     uint8_t data_bits,
@@ -226,7 +226,7 @@ inline int SerialIOBoost::open(
   return 0;
 }
 
-inline void SerialIOBoost::close()
+inline void Uart::close()
 {
   if (serial_port_.is_open()) {
     timer_.cancel();
@@ -235,12 +235,12 @@ inline void SerialIOBoost::close()
   }
 }
 
-inline void SerialIOBoost::setTimeout(uint32_t timeout_millis)
+inline void Uart::setTimeout(uint32_t timeout_millis)
 {
   timeout_ = timeout_millis;
 }
 
-inline int SerialIOBoost::flush(FlushType queue_selector)
+inline int Uart::flush(FlushType queue_selector)
 {
   errno = 0;
   int rc = 0;
@@ -262,14 +262,14 @@ inline int SerialIOBoost::flush(FlushType queue_selector)
   return rc;
 }
 
-inline uint32_t SerialIOBoost::available()
+inline uint32_t Uart::available()
 {
   uint32_t bytes_available;
   ioctl(serial_port_.lowest_layer().native_handle(), FIONREAD, &bytes_available);
   return bytes_available;
 }
 
-inline ssize_t SerialIOBoost::recv(char* buff, uint32_t bytes)
+inline ssize_t Uart::recv(char* buff, uint32_t bytes)
 {
   io_service_.reset();
   errno = 0;
@@ -279,7 +279,7 @@ inline ssize_t SerialIOBoost::recv(char* buff, uint32_t bytes)
       serial_port_,
       bio::buffer(buff, bytes),
       boost::bind(
-        &SerialIOBoost::onOprComplete,
+        &Uart::onOprComplete,
         this,
         bio::placeholders::error,
         bio::placeholders::bytes_transferred));
@@ -288,7 +288,7 @@ inline ssize_t SerialIOBoost::recv(char* buff, uint32_t bytes)
   return bytes_transferred_;
 }
 
-inline ssize_t SerialIOBoost::send(const char* buff, uint32_t bytes, bool drain)
+inline ssize_t Uart::send(const char* buff, uint32_t bytes, bool drain)
 {
   io_service_.reset();
   errno = 0;
@@ -297,7 +297,7 @@ inline ssize_t SerialIOBoost::send(const char* buff, uint32_t bytes, bool drain)
   bio::async_write(
       serial_port_,
       bio::buffer(buff, bytes),
-      boost::bind(&SerialIOBoost::onOprComplete,
+      boost::bind(&Uart::onOprComplete,
         this,
         bio::placeholders::error,
         bio::placeholders::bytes_transferred));
@@ -311,7 +311,7 @@ inline ssize_t SerialIOBoost::send(const char* buff, uint32_t bytes, bool drain)
   return bytes_transferred_;
 }
 
-inline int SerialIOBoost::sendBreak(uint32_t duration)
+inline int Uart::sendBreak(uint32_t duration)
 {
   return tcsendbreak(serial_port_.lowest_layer().native_handle(), duration);
 }
@@ -324,14 +324,14 @@ inline int SerialIOBoost::sendBreak(uint32_t duration)
 
 //============================================= OPERATIONS =========================================
 
-inline void SerialIOBoost::timeAsyncOpr()
+inline void Uart::timeAsyncOpr()
 {
   timer_.expires_from_now(boost::posix_time::milliseconds(timeout_));
-  timer_.async_wait(boost::bind(&SerialIOBoost::onTimeout, this, bio::placeholders::error));
+  timer_.async_wait(boost::bind(&Uart::onTimeout, this, bio::placeholders::error));
   io_service_.run();
 }
 
-inline void SerialIOBoost::onOprComplete(
+inline void Uart::onOprComplete(
     const boost::system::error_code& err, size_t bytes_transferred)
 {
   bytes_transferred_ = bytes_transferred;
@@ -343,7 +343,7 @@ inline void SerialIOBoost::onOprComplete(
   timer_.cancel();
 }
 
-inline void SerialIOBoost::onTimeout(const boost::system::error_code& error)
+inline void Uart::onTimeout(const boost::system::error_code& error)
 {
   // When the timer is cancelled, the error generated is bio::operation_aborted.
   //
@@ -355,4 +355,4 @@ inline void SerialIOBoost::onTimeout(const boost::system::error_code& error)
 
 } // namespace btr
 
-#endif // _btr_SerialIOBoost_hpp__
+#endif // _btr_Uart_hpp__

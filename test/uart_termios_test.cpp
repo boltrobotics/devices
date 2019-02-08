@@ -7,7 +7,7 @@
 #include <chrono>
 
 // PROJECT INCLUDES
-#include "devices/x86/serial_io_termios.hpp"
+#include "devices/x86/uart_termios.hpp"
 #include "devices/x86/pseudo_tty.hpp"
 #include "utility/buff.hpp"
 #include "utility/test_helpers.hpp"
@@ -24,13 +24,13 @@ namespace btr
 
 //------------------------------------------------------------------------------
 
-class SerialIOTermiosTest : public testing::Test
+class UartTermiosTest : public testing::Test
 {
 public:
 
   // LIFECYCLE
 
-  SerialIOTermiosTest()
+  UartTermiosTest()
     :
       tty_(),
       reader_(),
@@ -38,8 +38,12 @@ public:
       wbuff_(),
       rbuff_()
   {
-    reader_.open(TTY_SIM_0, BAUD, DATA_BITS, SerialIOTermios::PARITY_NONE, TIMEOUT);
-    sender_.open(TTY_SIM_1, BAUD, DATA_BITS, SerialIOTermios::PARITY_NONE, TIMEOUT);
+    // On occasion, readWriteOK test would get bad file descriptor. One reason could be because
+    // of unfinished port set up in tty_ constructor. Add a bit of sleep for now.
+    std::this_thread::sleep_for(20ms);
+
+    reader_.open(TTY_SIM_0, BAUD, DATA_BITS, UartTermios::PARITY_NONE, TIMEOUT);
+    sender_.open(TTY_SIM_1, BAUD, DATA_BITS, UartTermios::PARITY_NONE, TIMEOUT);
     resetBuffers();
   }
 
@@ -61,8 +65,8 @@ protected:
   // ATTRIBUTES
 
   PseudoTTY tty_;
-  SerialIOTermios reader_;
-  SerialIOTermios sender_;
+  UartTermios reader_;
+  UartTermios sender_;
   Buff wbuff_;
   Buff rbuff_;
 };
@@ -71,7 +75,7 @@ protected:
 
 // Tests {
 
-TEST_F(SerialIOTermiosTest, readWriteOK)
+TEST_F(UartTermiosTest, readWriteOK)
 {
   ssize_t rc = sender_.send((char*)wbuff_.read_ptr(), wbuff_.available());
   ASSERT_EQ(5, rc) << " Message: " << strerror(errno);
@@ -83,7 +87,7 @@ TEST_F(SerialIOTermiosTest, readWriteOK)
   TEST_MSG << TestHelpers::toHex(rbuff_);
 }
 
-TEST_F(SerialIOTermiosTest, flush)
+TEST_F(UartTermiosTest, flush)
 {
   ssize_t rc = sender_.send((char*)wbuff_.read_ptr(), wbuff_.available(), true);
   ASSERT_EQ(5, rc) << " Message: " << strerror(errno);
@@ -92,7 +96,7 @@ TEST_F(SerialIOTermiosTest, flush)
 
   rc = reader_.available();
   ASSERT_EQ(5, rc);
-  rc = reader_.flush(SerialIOTermios::FlashType::FLUSH_IN);
+  rc = reader_.flush(UartTermios::FlashType::FLUSH_IN);
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
   rc = reader_.available();
   ASSERT_EQ(0, rc);
@@ -110,7 +114,7 @@ TEST_F(SerialIOTermiosTest, flush)
   ASSERT_EQ(0, memcmp(wbuff_.data(), rbuff_.data(), wbuff_.size())) << TestHelpers::toHex(rbuff_);
 }
 
-TEST_F(SerialIOTermiosTest, readTimeout)
+TEST_F(UartTermiosTest, readTimeout)
 {
   high_resolution_clock::time_point start = high_resolution_clock::now();
 
@@ -125,7 +129,7 @@ TEST_F(SerialIOTermiosTest, readTimeout)
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
 }
 
-TEST_F(SerialIOTermiosTest, setTimeout)
+TEST_F(UartTermiosTest, setTimeout)
 {
   uint32_t timeout = 200;
   reader_.setTimeout(timeout);
@@ -142,7 +146,7 @@ TEST_F(SerialIOTermiosTest, setTimeout)
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
 }
 
-TEST_F(SerialIOTermiosTest, DISABLED_sendBreak)
+TEST_F(UartTermiosTest, DISABLED_sendBreak)
 {
   ssize_t rc = reader_.sendBreak(0);
 
@@ -166,7 +170,7 @@ TEST_F(SerialIOTermiosTest, DISABLED_sendBreak)
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
 }
 
-TEST_F(SerialIOTermiosTest, DISABLED_WriteTimeout)
+TEST_F(UartTermiosTest, DISABLED_WriteTimeout)
 {
 #if 0
   // FIXME: Write time-out simulation doesn't work.

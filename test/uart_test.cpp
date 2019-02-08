@@ -6,7 +6,7 @@
 #include <chrono>
 
 // PROJECT INCLUDES
-#include "devices/x86/serial_io_boost.hpp"
+#include "devices/x86/uart.hpp"
 #include "devices/x86/pseudo_tty.hpp"
 #include "utility/buff.hpp"
 #include "utility/test_helpers.hpp"
@@ -23,13 +23,13 @@ namespace btr
 
 //------------------------------------------------------------------------------
 
-class SerialIOBoostTest : public testing::Test
+class UartTest : public testing::Test
 {
 public:
 
   // LIFECYCLE
 
-  SerialIOBoostTest()
+  UartTest()
     :
       tty_(),
       reader_(),
@@ -37,8 +37,8 @@ public:
       wbuff_(),
       rbuff_()
   {
-    reader_.open(TTY_SIM_0, BAUD, DATA_BITS, SerialIOBoost::PARITY_NONE, TIMEOUT);
-    sender_.open(TTY_SIM_1, BAUD, DATA_BITS, SerialIOBoost::PARITY_NONE, TIMEOUT);
+    reader_.open(TTY_SIM_0, BAUD, DATA_BITS, Uart::PARITY_NONE, TIMEOUT);
+    sender_.open(TTY_SIM_1, BAUD, DATA_BITS, Uart::PARITY_NONE, TIMEOUT);
     resetBuffers();
   }
 
@@ -60,8 +60,8 @@ protected:
   // ATTRIBUTES
 
   PseudoTTY tty_;
-  SerialIOBoost reader_;
-  SerialIOBoost sender_;
+  Uart reader_;
+  Uart sender_;
   Buff wbuff_;
   Buff rbuff_;
 };
@@ -70,7 +70,7 @@ protected:
 
 // Tests {
 
-TEST_F(SerialIOBoostTest, readWriteOK)
+TEST_F(UartTest, readWriteOK)
 {
   ssize_t rc = sender_.send((char*)wbuff_.read_ptr(), wbuff_.available());
   ASSERT_EQ(5, rc) << " Message: " << strerror(errno);
@@ -82,7 +82,7 @@ TEST_F(SerialIOBoostTest, readWriteOK)
   TEST_MSG << TestHelpers::toHex(rbuff_);
 }
 
-TEST_F(SerialIOBoostTest, flush)
+TEST_F(UartTest, flush)
 {
   ssize_t rc = sender_.send((char*)wbuff_.read_ptr(), wbuff_.available(), true);
   ASSERT_EQ(5, rc) << " Message: " << strerror(errno);
@@ -91,7 +91,7 @@ TEST_F(SerialIOBoostTest, flush)
 
   rc = reader_.available();
   ASSERT_EQ(5, rc);
-  rc = reader_.flush(SerialIOBoost::FlushType::FLUSH_IN);
+  rc = reader_.flush(Uart::FlushType::FLUSH_IN);
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
   rc = reader_.available();
   ASSERT_EQ(0, rc);
@@ -109,7 +109,7 @@ TEST_F(SerialIOBoostTest, flush)
   ASSERT_EQ(0, memcmp(wbuff_.data(), rbuff_.data(), wbuff_.size())) << TestHelpers::toHex(rbuff_);
 }
 
-TEST_F(SerialIOBoostTest, readTimeout)
+TEST_F(UartTest, readTimeout)
 {
   high_resolution_clock::time_point start = high_resolution_clock::now();
 
@@ -124,7 +124,7 @@ TEST_F(SerialIOBoostTest, readTimeout)
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
 }
 
-TEST_F(SerialIOBoostTest, setTimeout)
+TEST_F(UartTest, setTimeout)
 {
   uint32_t timeout = 200;
   reader_.setTimeout(timeout);
@@ -141,7 +141,7 @@ TEST_F(SerialIOBoostTest, setTimeout)
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
 }
 
-TEST_F(SerialIOBoostTest, DISABLED_writeTimeout)
+TEST_F(UartTest, DISABLED_writeTimeout)
 {
 #if 0
   // FIXME: Write time-out simulation doesn't work.

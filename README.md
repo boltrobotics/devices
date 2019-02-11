@@ -17,9 +17,12 @@ cmake-helpers</a>.
   * [PwmMotor3Wire](#PwmMotor3Wire)
 * [AVR](#avr)
   * [PwmMotor3Wire](#PwmMotor3Wire)
+* [Common Code](#common_code)
+  * [MaxSonarLvEz](#MaxSonarLvEx)
+  * [WheelEncoder](#WheelEncoder)
 * [Contribute](#Contribute)
 
-## x86
+## <a name="x86">x86</a>
 
 ### <a name="PseudoTTY" href="https://github.com/boltrobotics/devices/tree/master/include/devices/x86/pseudo_tty.hpp" target="_blank">PseudoTTY</a>
 
@@ -39,7 +42,7 @@ Class functionality is similar to [Uart](#Uart) but using termios library.
 
 <a name="uart_termios_test" href="https://github.com/boltrobotics/devices/tree/master/test/uart_termios_test.cpp" target="_blank">uart_termios_test.cpp</a> contains unit tests for Uart class.
 
-## STM32
+## <a name="stm32">STM32</a>
 
 ### <a name="Usb" href="https://github.com/boltrobotics/devices/tree/master/include/devices/stm32/usb.hpp" target="_blank">Usb</a>
 
@@ -53,11 +56,21 @@ The class can drive a motor that uses three wires for direction and speed contro
 
 The class can drive a motor that uses two wires for direction and speed control.
 
-## AVR
+## <a name="avr">AVR</a>
 
 ### <a name="PwmMotor3Wire" href="https://github.com/boltrobotics/devices/tree/master/include/devices/avr/pwm_motor_3wire.hpp" target="_blank">PwmMotor3Wire</a>
 
 The class can drive a motor that uses three wires for direction and speed control.
+
+## <a name="common_code">Common Code</a>
+
+### <a name="MaxSonarLvEx" href="https://github.com/boltrobotics/devices/tree/master/include/devices/maxsonar_lvez.hpp" target="_blank">MaxSonarLvEx</a>
+
+The class calculates range in millimeters from an ADC sample of MaxSonar ultrasonic range finder.
+
+### <a name="WheelEncoder" href="https://github.com/boltrobotics/devices/tree/master/include/devices/wheel_encoder.hpp" target="_blank">WheelEncoder</a>
+
+The class counts the number of clicks that a virtual wheel moved forward and backward.
 
 # <a name="Contribute" href="https://boltrobotics.com/contribute/" target="_blank">Contribute</a>
 

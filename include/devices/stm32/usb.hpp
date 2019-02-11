@@ -40,23 +40,26 @@ public:
    * Send a single character.
    *
    * @param ch - the character to send
+   * @return 0 on success, -1 if queue was full
    */
-  static void send(char ch);
+  static int send(char ch);
 
   /**
    * Send data from buff up to null character.
    *
    * @param buff - data buffer
+   * @return 0 on success, -1 if queue was full
    */
-  static void send(const char* buff);
+  static int send(const char* buff);
 
   /**
    * Send a number of bytes from the buffer.
    *
    * @param buff - data buffer
    * @param bytes - number of bytes
+   * @return 0 on success, -1 if queue was full
    */
-  static void send(const char* buff, uint16_t bytes);
+  static int send(const char* buff, uint16_t bytes);
 
   /**
    * Receive a single character.

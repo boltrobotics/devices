@@ -33,6 +33,9 @@
 #if !defined(CTRL_BUFF_SIZE)
 #define CTRL_BUFF_SIZE 128
 #endif
+#if !defined(TX_Q_DELAY)
+#define TX_Q_DELAY 10
+#endif
 
 extern "C" {
 
@@ -326,34 +329,44 @@ void Usb::shutdown()
   // TODO turn off the clocks, stop transmit task, etc.
 }
 
-void Usb::send(char ch)
+int Usb::send(char ch)
 {
   while (false == ready_) {
     taskYIELD();
   }
-  xQueueSend(tx_q_, &ch, portMAX_DELAY);
+  return (pdPASS == xQueueSend(tx_q_, &ch, TX_Q_DELAY) ? 0 : -1);
 }
 
-void Usb::send(const char* buff)
+int Usb::send(const char* buff)
 {
+  int rc = 0;
+
   while (*buff) {
-    send(*buff++);
+    if (0 != (rc = send(*buff++))) {
+      break;
+    }
   }
+  return rc;
 }
 
-void Usb::send(const char* buff, uint16_t bytes)
+int Usb::send(const char* buff, uint16_t bytes)
 {
+  int rc = 0;
+
   while (bytes-- > 0) {
-    xQueueSend(tx_q_, buff, portMAX_DELAY);
+    if (0 != (rc = send(*buff))) {
+      break;
+    }
     ++buff;
   }
+  return rc;
 }
 
 int Usb::recv()
 {
   char ch;
 
-  if (xQueueReceive(rx_q_, &ch, portMAX_DELAY) != pdPASS) {
+  if (xQueueReceive(rx_q_, &ch, TX_Q_DELAY) != pdPASS) {
     return -1;
   }
   return ch;

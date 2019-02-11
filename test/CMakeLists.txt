@@ -9,8 +9,8 @@ include_directories(${UTILITY_HOME}/include)
 ####################################################################################################
 # devices test {
 
-set(EXE_SUFFIX "-tests")
-
 include(test_project)
+find_test_srcs()
+build_exe(SRCS ${SOURCES} LIBS ${PROJECT_NAME} SUFFIX "-tests")
 
 # } devices test

@@ -96,7 +96,7 @@ TEST_F(UartTermiosTest, flush)
 
   rc = reader_.available();
   ASSERT_EQ(5, rc);
-  rc = reader_.flush(UartTermios::FlashType::FLUSH_IN);
+  rc = reader_.flush(UartTermios::FlushType::FLUSH_IN);
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
   rc = reader_.available();
   ASSERT_EQ(0, rc);

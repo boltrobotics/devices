@@ -3,10 +3,12 @@
 
 // SYSTEM INCLUDES
 #include <gtest/gtest.h>
+#include <thread>
 #include <chrono>
 
 // PROJECT INCLUDES
-#include "devices/x86/uart.hpp"
+#include "devices/defines.hpp"
+#include "devices/x86/usart_termios.hpp"
 #include "devices/x86/pseudo_tty.hpp"
 #include "utility/buff.hpp"
 #include "utility/test_helpers.hpp"
@@ -19,17 +21,16 @@ namespace btr
 
 #define BAUD 115200
 #define DATA_BITS 8
-#define TIMEOUT 200
 
 //------------------------------------------------------------------------------
 
-class UartTest : public testing::Test
+class UsartTermiosTest : public testing::Test
 {
 public:
 
   // LIFECYCLE
 
-  UartTest()
+  UsartTermiosTest()
     :
       tty_(),
       reader_(),
@@ -37,8 +38,12 @@ public:
       wbuff_(),
       rbuff_()
   {
-    reader_.open(TTY_SIM_0, BAUD, DATA_BITS, Uart::PARITY_NONE, TIMEOUT);
-    sender_.open(TTY_SIM_1, BAUD, DATA_BITS, Uart::PARITY_NONE, TIMEOUT);
+    // On occasion, readWriteOK test would get bad file descriptor. One reason could be because
+    // of unfinished port set up in tty_ constructor. Add a bit of sleep for now.
+    std::this_thread::sleep_for(20ms);
+
+    reader_.open(TTY_SIM_0, BAUD, DATA_BITS, ParityType::NONE, SERIAL_IO_TIMEOUT);
+    sender_.open(TTY_SIM_1, BAUD, DATA_BITS, ParityType::NONE, SERIAL_IO_TIMEOUT);
     resetBuffers();
   }
 
@@ -48,7 +53,7 @@ public:
 
     wbuff_.reset();
     wbuff_.resize(sizeof(h));
-    wbuff_.write(h, sizeof(h) / sizeof(uint8_t));
+    wbuff_.write(h, sizeof(h)/sizeof(uint8_t));
 
     // Don't expect to receive endline character(s)
     rbuff_.reset();
@@ -60,8 +65,8 @@ protected:
   // ATTRIBUTES
 
   PseudoTTY tty_;
-  Uart reader_;
-  Uart sender_;
+  UsartTermios reader_;
+  UsartTermios sender_;
   Buff wbuff_;
   Buff rbuff_;
 };
@@ -70,7 +75,7 @@ protected:
 
 // Tests {
 
-TEST_F(UartTest, readWriteOK)
+TEST_F(UsartTermiosTest, readWriteOK)
 {
   ssize_t rc = sender_.send((char*)wbuff_.read_ptr(), wbuff_.available());
   ASSERT_EQ(5, rc) << " Message: " << strerror(errno);
@@ -82,7 +87,7 @@ TEST_F(UartTest, readWriteOK)
   TEST_MSG << TestHelpers::toHex(rbuff_);
 }
 
-TEST_F(UartTest, flush)
+TEST_F(UsartTermiosTest, flush)
 {
   ssize_t rc = sender_.send((char*)wbuff_.read_ptr(), wbuff_.available(), true);
   ASSERT_EQ(5, rc) << " Message: " << strerror(errno);
@@ -91,7 +96,7 @@ TEST_F(UartTest, flush)
 
   rc = reader_.available();
   ASSERT_EQ(5, rc);
-  rc = reader_.flush(Uart::FlushType::FLUSH_IN);
+  rc = reader_.flush(DirectionType::IN);
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
   rc = reader_.available();
   ASSERT_EQ(0, rc);
@@ -109,22 +114,22 @@ TEST_F(UartTest, flush)
   ASSERT_EQ(0, memcmp(wbuff_.data(), rbuff_.data(), wbuff_.size())) << TestHelpers::toHex(rbuff_);
 }
 
-TEST_F(UartTest, readTimeout)
+TEST_F(UsartTermiosTest, readTimeout)
 {
   high_resolution_clock::time_point start = high_resolution_clock::now();
 
   ssize_t rc = reader_.recv((char*)rbuff_.write_ptr(), rbuff_.remaining());
 
   high_resolution_clock::time_point now = high_resolution_clock::now();
-  auto duration = duration_cast<milliseconds>(now - start).count();
+  auto elapsed = duration_cast<milliseconds>(now - start).count();
 
-  ASSERT_LE(duration, TIMEOUT);
-  ASSERT_GT(TIMEOUT, duration);
+  ASSERT_LE(SERIAL_IO_TIMEOUT, elapsed);
+  ASSERT_GT(SERIAL_IO_TIMEOUT + 20, elapsed);
 
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
 }
 
-TEST_F(UartTest, setTimeout)
+TEST_F(UsartTermiosTest, setTimeout)
 {
   uint32_t timeout = 200;
   reader_.setTimeout(timeout);
@@ -141,13 +146,39 @@ TEST_F(UartTest, setTimeout)
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
 }
 
-TEST_F(UartTest, DISABLED_writeTimeout)
+#if 0
+TEST_F(UsartTermiosTest, DISABLED_sendBreak)
+{
+  ssize_t rc = reader_.sendBreak(0);
+
+  std::this_thread::sleep_for(20ms);
+
+  rc = reader_.available();
+  ASSERT_EQ(1, rc);
+
+  uint32_t timeout = 200;
+  reader_.setTimeout(timeout);
+  high_resolution_clock::time_point start = high_resolution_clock::now();
+
+  rc = reader_.recv((char*)rbuff_.write_ptr(), 1);
+
+  high_resolution_clock::time_point now = high_resolution_clock::now();
+  auto duration = duration_cast<milliseconds>(now - start).count();
+
+  ASSERT_LE(duration, 10);
+  ASSERT_GT(10, duration);
+
+  ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
+}
+#endif
+
+TEST_F(UsartTermiosTest, DISABLED_WriteTimeout)
 {
 #if 0
   // FIXME: Write time-out simulation doesn't work.
   Buff large_buff;
   large_buff.resize(65536);
-  int rc = sender_.send(&large_buff);
+  int e = sender_.send(&large_buff);
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
 #endif
 }

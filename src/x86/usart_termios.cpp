@@ -7,9 +7,10 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <errno.h>
+#include <string.h>
 
 // PROJECT INCLUDES
-#include "devices/x86/uart_termios.hpp"
+#include "devices/x86/usart_termios.hpp"
 
 namespace btr
 {
@@ -18,7 +19,7 @@ namespace btr
 
 //============================================= LIFECYCLE ==========================================
 
-UartTermios::UartTermios()
+UsartTermios::UsartTermios()
   :
   port_name_(""),
   baud_rate_(),
@@ -28,19 +29,19 @@ UartTermios::UartTermios()
 {
 }
 
-UartTermios::~UartTermios()
+UsartTermios::~UsartTermios()
 {
   close();
 }
 
 //============================================= OPERATIONS =========================================
 
-int UartTermios::open(
+int UsartTermios::open(
     const char* port_name,
     uint32_t baud_rate,
     uint8_t data_bits,
     uint8_t parity,
-    uint32_t timeout_millis)
+    uint32_t timeout)
 {
   port_name_ = port_name;
   data_bits_ = data_bits;
@@ -67,12 +68,12 @@ int UartTermios::open(
   //options.c_lflag &= ~ICANON;
 
   switch (parity) {
-    case PARITY_NONE:
+    case NONE:
       break;
-    case PARITY_EVEN:
+    case EVEN:
       options.c_cflag |= PARENB;
       break;
-    case PARITY_ODD:
+    case ODD:
       options.c_cflag |= PARENB | PARODD;
       break;
     default:
@@ -97,16 +98,16 @@ int UartTermios::open(
   if (cfsetospeed(&options, baud_rate_) != 0
       || cfsetispeed(&options, baud_rate_) != 0
       || tcsetattr(port_, TCSANOW, &options) != 0
-      || flush(FLUSH_INOUT) != 0)
+      || flush(INOUT) != 0)
   {
     return -1;
   }
 
-  int rc = setTimeout(timeout_millis);
+  int rc = setTimeout(timeout);
   return rc;
 }
 
-void UartTermios::close()
+void UsartTermios::close()
 {
   if (port_ != -1) {
     ::close(port_);
@@ -114,7 +115,7 @@ void UartTermios::close()
   }
 }
 
-int UartTermios::setTimeout(uint32_t timeout_millis)
+int UsartTermios::setTimeout(uint32_t timeout)
 {
   struct termios options;
   int rc = 0;
@@ -129,25 +130,32 @@ int UartTermios::setTimeout(uint32_t timeout_millis)
     //
     // WARNING: VTIME is in tenths of a second, so the minimum can be set is 100 milliseconds
     //
-    options.c_cc[VTIME] = timeout_millis / 100;
+    options.c_cc[VTIME] = timeout / 100;
     options.c_cc[VMIN] = 0;
     rc = tcsetattr(port_, TCSANOW, &options);
   }
   return rc;
 }
 
-int UartTermios::flush(FlushType queue_selector)
+int UsartTermios::available()
+{
+  int bytes_available;
+  ioctl(port_, FIONREAD, &bytes_available);
+  return bytes_available;
+}
+
+int UsartTermios::flush(DirectionType queue_selector)
 {
   int rc = 0;
 
   switch (queue_selector) {
-    case FLUSH_IN:
+    case IN:
       rc = tcflush(port_, TCIFLUSH);
       break;
-    case FLUSH_OUT:
+    case OUT:
       rc = tcflush(port_, TCOFLUSH);
       break;
-    case FLUSH_INOUT:
+    case INOUT:
       rc = tcflush(port_, TCIOFLUSH);
       break;
     default:
@@ -157,14 +165,41 @@ int UartTermios::flush(FlushType queue_selector)
   return rc;
 }
 
-uint32_t UartTermios::available()
+int UsartTermios::send(char ch, bool drain)
 {
-  uint32_t bytes_available;
-  ioctl(port_, FIONREAD, &bytes_available);
-  return bytes_available;
+  return send(&ch, 1, drain);
 }
 
-void UartTermios::setReadMinimum(uint32_t bytes)
+int UsartTermios::send(const char* buff, bool drain)
+{
+  uint32_t bytes = strlen(buff);
+  return send(buff, bytes, drain);
+}
+
+int UsartTermios::send(const char* buff, uint32_t bytes, bool drain)
+{
+  int rc = write(port_, buff, bytes);
+
+  if (drain) {
+    tcdrain(port_);
+  }
+  return rc;
+}
+
+int UsartTermios::recv()
+{
+  char buff[1];
+  return recv(buff, 1);
+}
+
+int UsartTermios::recv(char* buff, uint32_t bytes)
+{
+  int rc = read(port_, buff, bytes);
+  return rc;
+}
+
+#if 0
+void UsartTermios::setReadMinimum(uint32_t bytes)
 {
   struct termios options;
   tcgetattr(port_, &options);
@@ -173,26 +208,11 @@ void UartTermios::setReadMinimum(uint32_t bytes)
   tcsetattr(port_, TCSANOW, &options);
 }
 
-ssize_t UartTermios::recv(char* buff, uint32_t bytes)
-{
-  ssize_t rc = read(port_, buff, bytes);
-  return rc;
-}
-
-ssize_t UartTermios::send(const char* buff, uint32_t bytes, bool drain)
-{
-  ssize_t rc = write(port_, buff, bytes);
-
-  if (drain) {
-    tcdrain(port_);
-  }
-  return rc;
-}
-
-int UartTermios::sendBreak(uint32_t duration)
+int UsartTermios::sendBreak(uint32_t duration)
 {
   return tcsendbreak(port_, duration);
 }
+#endif
 
 /////////////////////////////////////////////// PROTECTED //////////////////////////////////////////
 
@@ -203,7 +223,7 @@ int UartTermios::sendBreak(uint32_t duration)
 
 //============================================= OPERATIONS =========================================
 
-int UartTermios::getNativeBaud(int num)
+int UsartTermios::getNativeBaud(int num)
 {
   int baud = B57600;
 

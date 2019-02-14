@@ -1,13 +1,15 @@
 // Copyright (C) 2017 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
-#ifndef _btr_Uart_hpp__
-#define _btr_Uart_hpp__
+#ifndef _btr_Usart_hpp__
+#define _btr_Usart_hpp__
 
 // SYSTEM INCLUDES
 #include <boost/asio.hpp>
 
 // PROJECT INCLUDES
+#include "devices/defines.hpp"
+#include "devices/hardware_stream.hpp"
 
 namespace bio = boost::asio;
 
@@ -17,35 +19,21 @@ namespace btr
 /**
  * The class provides a send/receive interface to a serial port.
  */
-class Uart
+class Usart : public HardwareStream
 {
 public:
-
-  typedef enum
-  {
-    PARITY_NONE,
-    PARITY_ODD,
-    PARITY_EVEN
-  } ParityType;
-
-  typedef enum
-  {
-    FLUSH_IN,
-    FLUSH_OUT,
-    FLUSH_INOUT
-  } FlushType;
 
 // LIFECYCLE
 
   /**
    * Initialize members to default values, don't open the port.
    */
-  Uart();
+  Usart();
 
   /**
    * Close the port.
    */
-  ~Uart();
+  ~Usart();
 
 // OPERATIONS
 
@@ -65,62 +53,52 @@ public:
       uint32_t baud_rate,
       uint8_t data_bits,
       uint8_t parity,
-      uint32_t timeout_millis);
+      uint32_t timeout = SERIAL_IO_TIMEOUT);
 
   /**
-   * Close serial port.
+   * @see HardwareStream::close
    */
-  void close();
+  virtual void close() override;
 
   /**
-   * @param timeout_millis 
+   * @see HardwareStream::setTimeout
    */
-  void setTimeout(uint32_t timeout_millis);
+  virtual int setTimeout(uint32_t timeout) override;
 
   /**
-   * Flush not-transmitted and non-read data on the serial port.
-   *
-   * @param queue_selector - one of:
-   *  FLUSH_IN - flushes data received but not read.
-   *  FLUSH_OUT - flushes data written but not transmitted.
-   *  FLUSH_INOUT - flushes both data received but not read, and data written but not transmitted.
-   *
-   *  @see termios(3)
+   * @see HardwareStream::available
    */
-  int flush(FlushType queue_selector);
+  virtual int available() override;
 
   /**
-   * @return bytes available on the serial port
+   * @see HardwareStream::flush
    */
-  uint32_t available();
+  virtual int flush(DirectionType queue_selector) override;
 
   /**
-   * Read data from serial port.
-   *
-   * @param buff - container for received bytes
-   * @param bytes - the number of bytes to read
-   * @return the number of bytes transferred
+   * @see HardwareStream::send
    */
-  ssize_t recv(char* buff, uint32_t bytes);
+  virtual int send(char ch, bool drain = false) override;
 
   /**
-   * Write data to serial port.
-   *
-   * @param data - the data to send
-   * @param bytes - the number of bytes to send
-   * @param drain - block until all output has been transmitted
-   * @return the number of bytes transferred
+   * @see HardwareStream::send
    */
-  ssize_t send(const char* buff, uint32_t bytes, bool drain = false);
+  virtual int send(const char* buff, bool drain = false) override;
 
   /**
-   * Transmit a continuous stream of 0 bits.
-   *
-   * @param duration - the length of the transmission. If duration is greater than 0, 0 bits are
-   *  transmitted for duration milliseconds. If duration is 0, 0 bits are transmitted for 0.25
-   *  seconds.
+   * @see HardwareStream::send
    */
-  int sendBreak(uint32_t duration);
+  virtual int send(const char* buff, uint32_t bytes, bool drain = false) override;
+
+  /**
+   * @see HardwareStream::recv
+   */
+  virtual int recv() override;
+
+  /**
+   * @see HardwareStream::recv
+   */
+  virtual int recv(char* buff, uint32_t bytes) override;
 
 private:
 
@@ -154,8 +132,8 @@ private:
   size_t              bytes_transferred_;
   size_t              timeout_;
 
-}; // class Uart
+}; // class Usart
 
 } // namespace btr
 
-#endif // _btr_Uart_hpp__
+#endif // _btr_Usart_hpp__

@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
-#ifndef _btr_Usb_hpp_
-#define _btr_Usb_hpp_
+#ifndef _btr_Usart_hpp_
+#define _btr_Usart_hpp_
 
 // SYSTEM INCLUDES
 
@@ -15,7 +15,7 @@ namespace btr
 /**
  * The class provides an interface to USB device on stm32f103c8t6 microcontroller.
  */
-class Usb : public HardwareStream
+class Usart : public HardwareStream
 {
 public:
 
@@ -24,31 +24,36 @@ public:
   /**
    * Dtor.
    */
-  ~Usb() = default;
+  ~Usart() = default;
 
 // OPERATIONS
 
   /**
    * Create new or return single instance.
    *
-   * @return an instance of a USB device. The instance may need to be initialized.
+   * @return an instance of a USART device. The instance may need to be initialized.
    */
-  static Usb* instance();
+  static Usart* instance(uint32_t usart_id);
 
   /**
-   * @see HardwareStream::init
+   * @see HardwareStream::isOpen
+   */
+  virtual bool isOpen() const override;
+
+  /**
+   * @see HardwareStream::open
    */
   virtual int open(bool init_gpio, uint32_t priority) override;
 
   /**
-   * @see HardwareStream::shutdown
+   * @see HardwareStream::close
    */
   virtual void close() override;
 
   /**
    * @see HardwareStream::setTimeout
    */
-  virtual int setTimeout(uint32_t timeout) = 0;
+  virtual int setTimeout(uint32_t timeout);
 
   /**
    * @see HardwareStream::available
@@ -92,9 +97,16 @@ private:
   /**
    * Ctor.
    */
-  Usb();
+  Usart();
+
+// ATTRIBUTES
+
+  TaskHandle_t tx_h_;
+  TaskHandle_t rx_h_;
+  QueueHandle_t tx_q_;
+  QueueHandle_t rx_q_;
 };
 
 } // namespace btr
 
-#endif // _btr_Usb_hpp_
+#endif // _btr_Usart_hpp_

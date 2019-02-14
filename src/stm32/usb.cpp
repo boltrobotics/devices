@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
+#if defined(BTR_ENABLE_USB)
+
 // SYSTEM INCLUDES
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
@@ -314,19 +316,40 @@ namespace btr
 
 /////////////////////////////////////////////// PUBLIC /////////////////////////////////////////////
 
-//============================================= LIFECYCLE ==========================================
-
 //============================================= OPERATIONS =========================================
 
-int Usb::init(bool init_gpio, uint32_t priority)
+// static
+Usb* Usb::instance()
 {
-  initUsb(init_gpio, priority);
+  static Usb single_instance;
+  return &single_instance;
+}
+
+int Usb::open(bool init_gpio, uint32_t priority)
+{
+  if (false == ready_) {
+    initUsb(init_gpio, priority);
+
+    while (false == ready_) {
+      taskYIELD();
+    }
+  }
   return 0;
 }
 
-void Usb::shutdown()
+void Usb::close()
 {
   // TODO turn off the clocks, stop transmit task, etc.
+}
+
+int Usb::setTimeout(uint32_t timeout)
+{
+  (void) timeout;
+}
+
+int Usb::available()
+{
+  return uxQueueMessagesWaiting(rx_q_);
 }
 
 int Usb::send(char ch)
@@ -385,27 +408,22 @@ int Usb::recv(char* buff, uint16_t bytes)
   return byte_idx;
 }
 
-int Usb::peek()
-{
-  char ch;
-  uint32_t rc = xQueuePeek(rx_q_, &ch, 0);
-
-  switch (rc) {
-    case errQUEUE_EMPTY:
-      return 0;
-    case pdPASS:
-      return 1;
-    default:
-      return -1;
-  }
-}
-
 /////////////////////////////////////////////// PROTECTED //////////////////////////////////////////
 
 //============================================= OPERATIONS =========================================
 
 /////////////////////////////////////////////// PRIVATE ////////////////////////////////////////////
 
+//============================================= LIFECYCLE ==========================================
+
+Usb::Usb()
+  :
+  HardwareStream()
+{
+}
+
 //============================================= OPERATIONS =========================================
 
 } // namespace btr
+
+#endif // defined(BTR_ENABLE_USB)

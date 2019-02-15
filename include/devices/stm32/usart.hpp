@@ -16,7 +16,7 @@ namespace btr
 {
 
 /**
- * The class provides an interface to USB device on stm32f103c8t6 microcontroller.
+ * The class provides an interface to USART devices on STM32F103C8T6 microcontroller.
  */
 class Usart
 {
@@ -39,64 +39,92 @@ public:
   /**
    * Create new or return an instance of a USART identified by usart_id.
    *
-   * @param usart_id - number from 1 to 3
-   * @param initialize - pass true to initialize usart unless already initialized
+   * @param usart_id - number from 1 to 3 for USARTx ports
    * @return an instance of a USART device. The instance may need to be initialized.
    */
   static Usart* instance(uint32_t usart_id);
 
   /**
-   * @see HardwareStream::isOpen
+   * Check if device is open.
+   *
+   * @return true if port is open, false otherwise
    */
   bool isOpen();
 
   /**
-   * @see HardwareStream::open
+   * Initialize the device.
    */
   int open();
 
   /**
-   * @see HardwareStream::close
+   * Stop the device, queues, clocks.
    */
   void close();
 
   /**
-   * @see HardwareStream::setTimeout
+   * @param timeout - timeout in milliseconds
+   * @return 0 on success, -1 on failure
    */
   int setTimeout(uint32_t timeout);
 
   /**
-   * @see HardwareStream::available
+   * Check if there is data in receive queue.
+   *
+   * @return bytes available on the serial port or -1 if failed to retrieve the value
    */
   int available();
 
   /**
-   * @see HardwareStream::flush
+   * Flush pending, not-transmitted and non-read, data on the serial port.
+   *
+   * @param queue_selector - one of:
+   *  IN - flushes data received but not read.
+   *  OUT - flushes data written but not transmitted.
+   *  INOUT - flushes both data received but not read, and data written but not transmitted.
    */
   int flush(DirectionType queue_selector);
 
   /**
-   * @see HardwareStream::send
+   * Send a single character.
+   *
+   * @param ch - the character to send
+   * @param drain - block until all output has been transmitted
+   * @return 0 on success, -1 if queue was full
    */
   int send(char ch, bool drain = false);
 
   /**
-   * @see HardwareStream::send
+   * Send data from buff up to null character.
+   *
+   * @param buff - data buffer
+   * @param drain - block until all output has been transmitted
+   * @return 0 on success, -1 if queue was full
    */
   int send(const char* buff, bool drain = false);
 
   /**
-   * @see HardwareStream::send
+   * Send a number of bytes from the buffer.
+   *
+   * @param buff - data buffer
+   * @param bytes - number of bytes
+   * @param drain - block until all output has been transmitted
+   * @return 0 on success, -1 if queue was full
    */
   int send(const char* buff, uint32_t bytes, bool drain = false);
 
   /**
-   * @see HardwareStream::recv
+   * Receive a single character.
+   *
+   * @return the received character or -1 on error
    */
   int recv();
 
   /**
-   * @see HardwareStream::recv
+   * Receive a number of bytes and store in the buffer.
+   *
+   * @param buff - buffer to store received data
+   * @param bytes - the number of bytes to receive
+   * @return bytes received or -1 on error
    */
   int recv(char* buff, uint32_t bytes);
 
@@ -116,7 +144,7 @@ public:
   uint8_t* rxBuff();
 
   /**
-   * @return USART id
+   * @return USART ID, [1, 3]
    */
   uint8_t id();
 

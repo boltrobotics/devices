@@ -9,7 +9,6 @@
 
 // PROJECT INCLUDES
 #include "devices/defines.hpp"
-#include "devices/hardware_stream.hpp"
 
 namespace bio = boost::asio;
 
@@ -19,15 +18,12 @@ namespace btr
 /**
  * The class provides a send/receive interface to a serial port.
  */
-class Usart : public HardwareStream
+class Usart
 {
 public:
 
 // LIFECYCLE
 
-  /**
-   * Initialize members to default values, don't open the port.
-   */
   Usart();
 
   /**
@@ -38,7 +34,7 @@ public:
 // OPERATIONS
 
   /**
-   * Open serial port.
+   * (Re)-configure USART parameters.
    *
    * @param port - serial IO port name (e.g., /dev/ttyS0)
    * @param baud_rate - baud rate. It must be one of values specified by in termios.h
@@ -46,59 +42,68 @@ public:
    * @param data_bits
    * @param parity - @see ParityType
    * @param timeout - serial operation timeout in milliseconds
-   * @return 0 on success, -1 on failure
    */
-  int open(
+  void configure(
       const char* port_name,
       uint32_t baud_rate,
       uint8_t data_bits,
       uint8_t parity,
-      uint32_t timeout = SERIAL_IO_TIMEOUT);
+      uint32_t timeout = BTR_USART_IO_TIMEOUT);
+
+  /**
+   * @see HardwareStream::open
+   */
+  bool isOpen();
+
+  /**
+   * @see HardwareStream::open
+   */
+  int open();
 
   /**
    * @see HardwareStream::close
    */
-  virtual void close() override;
+  void close();
 
   /**
    * @see HardwareStream::setTimeout
    */
-  virtual int setTimeout(uint32_t timeout) override;
+  int setTimeout(uint32_t timeout);
 
   /**
    * @see HardwareStream::available
    */
-  virtual int available() override;
+  int available();
 
   /**
    * @see HardwareStream::flush
    */
-  virtual int flush(DirectionType queue_selector) override;
+  int flush(DirectionType queue_selector);
 
   /**
    * @see HardwareStream::send
    */
-  virtual int send(char ch, bool drain = false) override;
+  int send(char ch, bool drain = false);
 
   /**
    * @see HardwareStream::send
    */
-  virtual int send(const char* buff, bool drain = false) override;
+  int send(const char* buff, bool drain = false);
 
   /**
    * @see HardwareStream::send
    */
-  virtual int send(const char* buff, uint32_t bytes, bool drain = false) override;
+  int send(const char* buff, uint32_t bytes, bool drain = false);
 
   /**
    * @see HardwareStream::recv
    */
-  virtual int recv() override;
+  int recv();
 
   /**
    * @see HardwareStream::recv
    */
-  virtual int recv(char* buff, uint32_t bytes) override;
+  int recv(char* buff, uint32_t bytes);
 
 private:
 
@@ -130,6 +135,10 @@ private:
   bio::serial_port    serial_port_;
   bio::deadline_timer timer_;
   size_t              bytes_transferred_;
+  const char*         port_name_;
+  uint32_t            baud_rate_;
+  uint8_t             data_bits_;
+  uint8_t             parity_;
   size_t              timeout_;
 
 }; // class Usart

@@ -21,7 +21,7 @@ namespace btr
 
 UsartTermios::UsartTermios()
   :
-  port_name_(""),
+  port_name_(nullptr),
   baud_rate_(),
   data_bits_(),
   parity_(),
@@ -36,7 +36,7 @@ UsartTermios::~UsartTermios()
 
 //============================================= OPERATIONS =========================================
 
-int UsartTermios::open(
+void UsartTermios::configure(
     const char* port_name,
     uint32_t baud_rate,
     uint8_t data_bits,
@@ -44,10 +44,19 @@ int UsartTermios::open(
     uint32_t timeout)
 {
   port_name_ = port_name;
+  baud_rate_ = baud_rate;
   data_bits_ = data_bits;
   parity_ = parity;
+  timeout_ = timeout;
+}
 
-  baud_rate_ = getNativeBaud(baud_rate);
+bool UsartTermios::isOpen()
+{
+  return (port_ != -1);
+}
+
+int UsartTermios::open()
+{
   port_ = ::open(port_name_, O_RDWR | O_NOCTTY);
 
   if (port_ < 0) {
@@ -63,11 +72,11 @@ int UsartTermios::open(
 
   cfmakeraw(&options);
   //bzero(&options, sizeof(struct termios));
-  //options.c_cflag = CS8 | CREAD | CLOCAL | baud_rate_;
+  //options.c_cflag = CS8 | CREAD | CLOCAL | baud_rate;
   //options.c_iflag = IGNPAR | IGNCR;
   //options.c_lflag &= ~ICANON;
 
-  switch (parity) {
+  switch (parity_) {
     case NONE:
       break;
     case EVEN:
@@ -81,7 +90,7 @@ int UsartTermios::open(
       return -1;
   }
 
-  switch (data_bits) {
+  switch (data_bits_) {
     case 8:
       options.c_cflag |= CS8;
       break;
@@ -93,17 +102,17 @@ int UsartTermios::open(
       return -1;
   }
 
-  baud_rate_ = getNativeBaud(baud_rate);
+  int baud_rate = getNativeBaud(baud_rate_);
 
-  if (cfsetospeed(&options, baud_rate_) != 0
-      || cfsetispeed(&options, baud_rate_) != 0
+  if (cfsetospeed(&options, baud_rate) != 0
+      || cfsetispeed(&options, baud_rate) != 0
       || tcsetattr(port_, TCSANOW, &options) != 0
       || flush(INOUT) != 0)
   {
     return -1;
   }
 
-  int rc = setTimeout(timeout);
+  int rc = setTimeout(timeout_);
   return rc;
 }
 

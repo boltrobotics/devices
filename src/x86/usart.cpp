@@ -23,7 +23,11 @@ Usart::Usart()
   serial_port_(io_service_),
   timer_(io_service_),
   bytes_transferred_(0),
-  timeout_(0)
+  port_name_(nullptr),
+  baud_rate_(BTR_USART1_BAUD),
+  data_bits_(BTR_USART1_DATA_BITS),
+  parity_(ParityType::NONE),
+  timeout_(BTR_USART_IO_TIMEOUT)
 {
 }
 
@@ -34,26 +38,36 @@ Usart::~Usart()
 
 //============================================= OPERATIONS =========================================
 
-int Usart::open(
+void Usart::configure(
     const char* port_name,
     uint32_t baud_rate,
     uint8_t data_bits,
     uint8_t parity,
-    uint32_t timeout_millis)
+    uint32_t timeout)
 {
-  timeout_ = timeout_millis;
+  port_name_ = port_name;
+  baud_rate_ = baud_rate;
+  data_bits_ = data_bits;
+  parity_ = parity;
+  timeout_ = timeout;
+}
 
-  close();
+bool Usart::isOpen()
+{
+  return serial_port_.is_open();
+}
 
+int Usart::open()
+{
   errno = 0;
   boost::system::error_code ec;
-  serial_port_.open(port_name, ec);
+  serial_port_.open(port_name_, ec);
 
   if (0 == ec.value()) {
-    serial_port_.set_option(bio::serial_port::baud_rate(baud_rate));
-    serial_port_.set_option(bio::serial_port::character_size(data_bits));
+    serial_port_.set_option(bio::serial_port::baud_rate(baud_rate_));
+    serial_port_.set_option(bio::serial_port::character_size(data_bits_));
 
-    switch (parity) {
+    switch (parity_) {
       case EVEN:
         serial_port_.set_option(bio::serial_port::parity(bio::serial_port::parity::even));
         break;

@@ -5,9 +5,12 @@
 #define _btr_Usart_hpp_
 
 // SYSTEM INCLUDES
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
 
 // PROJECT INCLUDES
-#include "devices/hardware_stream.hpp"
+#include "devices/defines.hpp"
 
 namespace btr
 {
@@ -15,11 +18,16 @@ namespace btr
 /**
  * The class provides an interface to USB device on stm32f103c8t6 microcontroller.
  */
-class Usart : public HardwareStream
+class Usart
 {
 public:
 
 // LIFECYCLE
+
+  /**
+   * Ctor.
+   */
+  Usart(uint8_t id);
 
   /**
    * Dtor.
@@ -29,8 +37,10 @@ public:
 // OPERATIONS
 
   /**
-   * Create new or return single instance.
+   * Create new or return an instance of a USART identified by usart_id.
    *
+   * @param usart_id - number from 1 to 3
+   * @param initialize - pass true to initialize usart unless already initialized
    * @return an instance of a USART device. The instance may need to be initialized.
    */
   static Usart* instance(uint32_t usart_id);
@@ -38,74 +48,137 @@ public:
   /**
    * @see HardwareStream::isOpen
    */
-  virtual bool isOpen() const override;
+  bool isOpen();
 
   /**
    * @see HardwareStream::open
    */
-  virtual int open(bool init_gpio, uint32_t priority) override;
+  int open();
 
   /**
    * @see HardwareStream::close
    */
-  virtual void close() override;
+  void close();
 
   /**
    * @see HardwareStream::setTimeout
    */
-  virtual int setTimeout(uint32_t timeout);
+  int setTimeout(uint32_t timeout);
 
   /**
    * @see HardwareStream::available
    */
-  virtual int available() override;
+  int available();
 
   /**
    * @see HardwareStream::flush
    */
-  virtual int flush(DirectionType queue_selector) override;
+  int flush(DirectionType queue_selector);
 
   /**
    * @see HardwareStream::send
    */
-  virtual int send(char ch) override;
+  int send(char ch, bool drain = false);
 
   /**
    * @see HardwareStream::send
    */
-  virtual int send(const char* buff) override;
+  int send(const char* buff, bool drain = false);
 
   /**
    * @see HardwareStream::send
    */
-  virtual int send(const char* buff, uint16_t bytes) override;
+  int send(const char* buff, uint32_t bytes, bool drain = false);
 
   /**
    * @see HardwareStream::recv
    */
-  virtual int recv() override;
+  int recv();
 
   /**
    * @see HardwareStream::recv
    */
-  virtual int recv(char* buff, uint16_t bytes) override;
+  int recv(char* buff, uint32_t bytes);
+
+  /**
+   * @return head position of receive circular buffer
+   */
+  volatile uint16_t& rxHead();
+
+  /**
+   * @return tail position of receive circular buffer
+   */
+  volatile uint16_t& rxTail();
+
+  /**
+   * @return receive circular buffer
+   */
+  uint8_t* rxBuff();
+
+  /**
+   * @return USART id
+   */
+  uint8_t id();
+
+  /**
+   * @return reference to transmit queue
+   */
+  TaskHandle_t& txh();
+
+  /**
+   * @return reference to transmit queue
+   */
+  QueueHandle_t& txq();
 
 private:
 
-// LIFECYCLE
-
-  /**
-   * Ctor.
-   */
-  Usart();
-
 // ATTRIBUTES
 
+  uint8_t id_;
   TaskHandle_t tx_h_;
-  TaskHandle_t rx_h_;
   QueueHandle_t tx_q_;
-  QueueHandle_t rx_q_;
+	volatile uint16_t rx_head_;
+	volatile uint16_t rx_tail_;
+	uint8_t rx_buff_[BTR_USART_RX_BUFF_SIZE];
 };
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// INLINE OPERATIONS
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////// PUBLIC /////////////////////////////////////////////
+
+//============================================= OPERATIONS =========================================
+
+inline volatile uint16_t& Usart::rxHead()
+{
+  return rx_head_;
+}
+
+inline volatile uint16_t& Usart::rxTail()
+{
+  return rx_head_;
+}
+
+inline uint8_t* Usart::rxBuff()
+{
+  return rx_buff_;
+}
+
+inline uint8_t Usart::id()
+{
+  return id_;
+}
+
+inline TaskHandle_t& Usart::txh()
+{
+  return tx_h_;
+}
+
+inline QueueHandle_t& Usart::txq()
+{
+  return tx_q_;
+}
 
 } // namespace btr
 

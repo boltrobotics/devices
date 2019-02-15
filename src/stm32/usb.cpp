@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
-#if defined(BTR_ENABLE_USB)
+#if defined(BTR_STM32_ENABLE_USB)
 
 // SYSTEM INCLUDES
 #include <libopencm3/stm32/rcc.h>
@@ -229,7 +229,6 @@ static enum usbd_request_return_codes onCtrlRecv(
 static void onDataRecv(usbd_device* usbd_dev, uint8_t ep)
 {
   (void) ep;
-
   uint32_t rx_q_avail = uxQueueSpacesAvailable(rx_q_);
 
   if (rx_q_avail > 0) {
@@ -242,6 +241,7 @@ static void onDataRecv(usbd_device* usbd_dev, uint8_t ep)
       xQueueSend(rx_q_, &buff[i], 0);
     }
   }
+  gpio_toggle(BTR_BUILTIN_LED_PORT, BTR_BUILTIN_LED_PIN);
 }
 
 static void txTask(void* arg)
@@ -261,6 +261,7 @@ static void txTask(void* arg)
 
       if (bytes > 0) {
         if (usbd_ep_write_packet(usb_dev, 0x82, buff, bytes) != 0) {
+          gpio_toggle(BTR_BUILTIN_LED_PORT, BTR_BUILTIN_LED_PIN);
           bytes = 0;
         }
       } else {
@@ -289,15 +290,13 @@ static void setConfig(usbd_device* usbd_dev, uint16_t wval)
   ready_ = true;
 }
 
-static void initUsb(bool init_gpio, uint32_t priority)
+static void initUsb()
 {
   tx_q_ = xQueueCreate(TX_Q_SIZE, sizeof(char));
   rx_q_ = xQueueCreate(RX_Q_SIZE, sizeof(char));
 
-  if (init_gpio) {
-    rcc_periph_clock_enable(RCC_GPIOA);
-    rcc_periph_clock_enable(RCC_USB);
-  }
+  rcc_periph_clock_enable(RCC_GPIOA);
+  rcc_periph_clock_enable(RCC_USB);
 
   usbd_device* usb_dev = usbd_init(
       &st_usbfs_v1_usb_driver, &usb_dev_info, &usb_cnf_info,
@@ -306,7 +305,7 @@ static void initUsb(bool init_gpio, uint32_t priority)
 
   usbd_register_set_config_callback(usb_dev, setConfig);
 
-  xTaskCreate(txTask, "tx", 200, usb_dev, priority, NULL);
+  xTaskCreate(txTask, "USBTX", configMINIMAL_STACK_SIZE, usb_dev, configMAX_PRIORITIES-1, NULL);
 }
 
 } // extern "C"
@@ -314,25 +313,33 @@ static void initUsb(bool init_gpio, uint32_t priority)
 namespace btr
 {
 
+static Usb usb_;
+
 /////////////////////////////////////////////// PUBLIC /////////////////////////////////////////////
+
+//============================================= LIFECYCLE ==========================================
 
 //============================================= OPERATIONS =========================================
 
 // static
 Usb* Usb::instance()
 {
-  static Usb single_instance;
-  return &single_instance;
+  return &usb_;
 }
 
-int Usb::open(bool init_gpio, uint32_t priority)
+bool Usb::isOpen()
+{
+  return ready_;
+}
+
+int Usb::open()
 {
   if (false == ready_) {
-    initUsb(init_gpio, priority);
+    initUsb();
 
-    while (false == ready_) {
-      taskYIELD();
-    }
+    //while (false == ready_) {
+    //  taskYIELD();
+    //}
   }
   return 0;
 }
@@ -345,6 +352,7 @@ void Usb::close()
 int Usb::setTimeout(uint32_t timeout)
 {
   (void) timeout;
+  return 0;
 }
 
 int Usb::available()
@@ -352,16 +360,26 @@ int Usb::available()
   return uxQueueMessagesWaiting(rx_q_);
 }
 
-int Usb::send(char ch)
+int Usb::flush(DirectionType queue_selector)
 {
+  // TODO
+  (void) queue_selector;
+  return 0;
+}
+
+int Usb::send(char ch, bool drain)
+{
+  (void) drain;
+
   while (false == ready_) {
     taskYIELD();
   }
   return (pdPASS == xQueueSend(tx_q_, &ch, TX_Q_DELAY) ? 0 : -1);
 }
 
-int Usb::send(const char* buff)
+int Usb::send(const char* buff, bool drain)
 {
+  (void) drain;
   int rc = 0;
 
   while (*buff) {
@@ -372,8 +390,9 @@ int Usb::send(const char* buff)
   return rc;
 }
 
-int Usb::send(const char* buff, uint16_t bytes)
+int Usb::send(const char* buff, uint32_t bytes, bool drain)
 {
+  (void) drain;
   int rc = 0;
 
   while (bytes-- > 0) {
@@ -395,9 +414,9 @@ int Usb::recv()
   return ch;
 }
 
-int Usb::recv(char* buff, uint16_t bytes)
+int Usb::recv(char* buff, uint32_t bytes)
 {
-  int32_t byte_idx = 0;
+  uint32_t byte_idx = 0;
 
   while (bytes > 0 && (byte_idx + 1) < bytes) {
     int ch = recv();
@@ -414,16 +433,8 @@ int Usb::recv(char* buff, uint16_t bytes)
 
 /////////////////////////////////////////////// PRIVATE ////////////////////////////////////////////
 
-//============================================= LIFECYCLE ==========================================
-
-Usb::Usb()
-  :
-  HardwareStream()
-{
-}
-
 //============================================= OPERATIONS =========================================
 
 } // namespace btr
 
-#endif // defined(BTR_ENABLE_USB)
+#endif // defined(BTR_ST32_ENABLE_USB)

@@ -1,174 +1,207 @@
 // Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+// Initial: Warren W. Gay VE3WWG, Tue Feb 21 20:35:54 2017
 
-#if defined(BTR_ENABLE_USART)
+#if defined(BTR_STM32_ENABLE_USART)
 
 // SYSTEM INCLUDES
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
-#include <libopencm3/usb/usart.h>
+#include <libopencm3/stm32/usart.h>
+#include <libopencm3/cm3/nvic.h>
 
-#include "FreeRTOS.h"
-#include "task.h"
-#include "queue.h"
+#include <errno.h>
 
 // PROJECT INCLUDES
 #include "devices/stm32/usart.hpp"  // class implemented
 
-#if !defined(TX_Q_SIZE)
-#define TX_Q_SIZE 64
+// Internal macros
+#define BTR_USART_MIN_ID 1
+#define BTR_USART_MAX_ID 3
+
+#ifndef BTR_USART_PRIORITY
+#define BTR_USART_PRIORITY (configMAX_PRIORITIES - 1)
 #endif
-#if !defined(RX_Q_SIZE)
-#define RX_Q_SIZE 64
-#endif
-#if !defined(RX_BUFF_SIZE)
-#define RX_BUFF_SIZE 64
-#endif
-#if !defined(TX_BUFF_SIZE)
-#define TX_BUFF_SIZE 64
-#endif
-#if !defined(TX_Q_DELAY)
-#define TX_Q_DELAY 10
-#endif
+
+#define BTR_USART1_NAME "USART1"
+#define BTR_USART2_NAME "USART2"
+#define BTR_USART3_NAME "USART3"
 
 extern "C" {
 
-#if 0
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// Interrupt handling {
+// Hardware I/O {
 
-static void onInterrupt(uint8_t usart_id)
+struct UsartInfo {
+	rcc_periph_clken rcc_gpio;
+	rcc_periph_clken rcc_usart;
+  uint32_t port;
+	uint32_t pin;
+	uint32_t irq;
+  uint16_t tx;
+  uint16_t rx;
+  uint16_t cts;
+  uint16_t rts;
+};
+
+static struct UsartInfo usart_info_[] = {
+	{ RCC_GPIOA, RCC_USART1, GPIOA, USART1, NVIC_USART1_IRQ, GPIO_USART1_TX, GPIO_USART1_RX,
+    GPIO11, GPIO12 },
+	{ RCC_GPIOA, RCC_USART2, GPIOA, USART2, NVIC_USART2_IRQ, GPIO_USART2_TX, GPIO_USART2_RX,
+    GPIO0, GPIO1 },
+	{ RCC_GPIOB, RCC_USART3, GPIOB, USART3, NVIC_USART3_IRQ, GPIO_USART3_TX, GPIO_USART3_RX,
+    GPIO13, GPIO14 }
+};
+
+static void txTask(void* arg)
 {
-	struct s_uart* uartp = uart_data[usart_id];
+  btr::Usart* dev = (btr::Usart*) arg;
+	uint32_t pin = usart_info_[dev->id() - 1].pin;
+  char ch;
 
-	if (!uartp) {
-    // Not open for ISR receiving
+  for (;;) {
+		if (pdPASS == xQueueReceive(dev->txq(), &ch, 500)) {
+			while (false == usart_get_flag(pin, USART_SR_TXE)) {
+				taskYIELD();
+      }
+      gpio_toggle(BTR_BUILTIN_LED_PORT, BTR_BUILTIN_LED_PIN);
+			usart_send(pin, ch);
+    }
+  }
+}
+
+static void onRecv(uint8_t id)
+{
+  btr::Usart* dev = btr::Usart::instance(id);
+
+	if (NULL == dev) {
 		return;
   }
 
-	uint32_t uart = uarts[usart_id].usart;
+  struct UsartInfo* info = &usart_info_[dev->id() - 1];
 
-	while (USART_SR(uart) & USART_SR_RXNE) {
-    // Read data
-		char ch = USART_DR(uart);
-    // Calc next tail index
-		uint32_t ntail = (uartp->tail + 1) % USART_BUF_DEPTH;
+	while (USART_SR(info->pin) & USART_SR_RXNE) {
+		char ch = USART_DR(info->pin);
+		uint32_t ntail = (dev->rxTail() + 1) % BTR_USART_RX_BUFF_SIZE;
 
-		// Save data if the buffer is not full.
-    //
-		if (ntail != uartp->head) {
-			uartp->buf[uartp->tail] = ch;
-			uartp->tail = ntail;
+    // Save data if buffer has room, discard the data if there is no room.
+		if (ntail != dev->rxHead()) {
+			dev->rxBuff()[dev->rxTail()] = ch;
+			dev->rxTail() = ntail;
 		}
 	}
+  gpio_toggle(BTR_BUILTIN_LED_PORT, BTR_BUILTIN_LED_PIN);
 }
 
 void usart1_isr()
 {
-	onInterrupt(0);
+	onRecv(1);
 }
+
 void usart2_isr()
 {
-	onInterrupt(1);
+	onRecv(2);
 }
+
 void usart3_isr()
 {
-	onInterrupt(3);
+	onRecv(3);
 }
 
-// } Interrupt handling
-////////////////////////////////////////////////////////////////////////////////////////////////////
-#endif
-
-static void onDataRecv(usbd_device* usbd_dev, uint8_t ep)
-{
-  (void) ep;
-
-  uint32_t rx_q_avail = uxQueueSpacesAvailable(rx_q_);
-
-  if (rx_q_avail > 0) {
-    char buff[RX_BUFF_SIZE];
-
-    int bytes = (RX_BUFF_SIZE < rx_q_avail ? RX_BUFF_SIZE : rx_q_avail);
-    bytes = usbd_ep_read_packet(usbd_dev, 0x01, buff, bytes);
-
-    for (int i = 0; i < bytes; ++i) {
-      xQueueSend(rx_q_, &buff[i], 0);
-    }
-  }
-}
-
-static void txTask(void* arg)
-{
-  Usart* dev = (Usart*) arg;
-  char ch;
-
-  for (;;) {
-		if (pdPASS == xQueueReceive(dev->tx_q_, &ch, 500)) {
-			while (false == usart_get_flag(dev->id_, USART_SR_TXE)) {
-				taskYIELD();
-      }
-			usart_send(dev->id_, ch);
-    }
-  }
-}
+// } Hardware I/O
 
 static int initUsart(
-    Usart* dev,
-    uint32_t id,
-    uint32_t rcc_clk,
-    uint8_t irqn,
+    btr::Usart* dev,
     uint32_t baud_rate,
     uint8_t data_bits,
     uint8_t stop_bits,
     int parity,
-    int flow_ctrl,
-    int io_mode,
+    int rts,
+    int cts,
     const char* tx_name,
-    const char* rx_name,
-    TaskHandle_t* tx_h,
-    TaskHandle_t* rx_h,
-    QueueHandle_t* tx_q,
-    QueueHandle_t* rx_q,
     uint32_t tx_q_size,
-    uint32_t rx_q_size)
+    int priority)
 {
-  rcc_periph_clock_enable(rcc_clk);
-  usart_set_baudrate(id, baud_rate);
-  usart_set_databits(id, data_bits);
-  usart_set_stopbits(id, stop_bits);
-  usart_set_parity(id, parity);
-  usart_set_flow_control(id, flow_ctrl);
-  usart_set_mode(id, io_mode);
+  if (dev->id() < BTR_USART_MIN_ID || dev->id() > BTR_USART_MAX_ID) {
+    errno = EINVAL;
+    return -1;
+  }
 
-  if (NULL == (tx_q = xQueueCreate(tx_q_size, sizeof(char)))) {
-    goto cleanup;
-  } else if (NULL == (rx_q = xQueueCreate(rx_q_size, sizeof(char)))) {
+  struct UsartInfo* info = &usart_info_[dev->id() - 1];
+	usart_disable_rx_interrupt(info->pin);
+
+	switch (parity) {
+    case 'N':
+      parity = USART_PARITY_NONE;
+      break;
+    case 'O':
+      parity = USART_PARITY_ODD;
+      break;
+    case 'E':
+      parity = USART_PARITY_EVEN;
+      break;
+    default:
+      errno = EINVAL;
+      return -1;
+	}
+
+	int flow_ctrl = USART_FLOWCONTROL_NONE;
+
+	if (rts) {
+		if (cts) {
+			flow_ctrl = USART_FLOWCONTROL_RTS_CTS;
+      gpio_set_mode(info->port, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, info->cts); 
+      gpio_set_mode(info->port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, info->rts);
+    } else {
+      flow_ctrl = USART_FLOWCONTROL_RTS;
+      gpio_set_mode(info->port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, info->rts);
+    }
+	} else if (cts) {
+		flow_ctrl = USART_FLOWCONTROL_CTS;
+    gpio_set_mode(info->port, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, info->cts); 
+	}
+
+  rcc_periph_clock_enable(info->rcc_gpio);
+  rcc_periph_clock_enable(info->rcc_usart);
+  gpio_set_mode(info->port, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, info->tx);
+	gpio_set_mode(info->port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, info->rx);
+
+  usart_set_baudrate(info->pin, baud_rate);
+  usart_set_databits(info->pin, data_bits);
+  usart_set_stopbits(info->pin, stop_bits);
+  usart_set_parity(info->pin, parity);
+  usart_set_mode(info->pin, USART_MODE_TX_RX);
+  usart_set_flow_control(info->pin, flow_ctrl);
+
+  if (NULL == (dev->txq() = xQueueCreate(tx_q_size, sizeof(char)))) {
     goto cleanup;
   }
 
-  uint16_t stack_size = configMINIMAL_STACK_SIZE;
-
-  if (pdPASS != xTaskCreate(txTask, tx_name, stack_size, dev, priority, tx_h)) {
-    goto cleanup;
-  } else if (pdPASS != xTaskCreate(rxTask, rx_name, stack_size, dev, priority, rx_h)) {
+  if (pdPASS != xTaskCreate(txTask, tx_name, configMINIMAL_STACK_SIZE, dev, priority, &dev->txh()))
+  {
     goto cleanup;
   }
 
-  cm_disable_interrupts();
-  nvic_enable_irq(irqn);
-  usart_enable_rx_interrupt(id);
-  usart_enable(id);
-  cm_enable_interrupts();
+  nvic_enable_irq(info->irq);
+  usart_enable_rx_interrupt(info->pin);
+  usart_enable(info->pin);
+
 	return 0;
 
   cleanup:
-    rcc_periph_clock_disable(rcc_clk);
-    if (NULL != rx_h) { vTaskDelete(rx_h); rx_h = NULL; }
-    if (NULL != tx_h) { vTaskDelete(tx_h); tx_h = NULL; }
-    if (NULL != rx_q) { vQueueDelete(rx_q); rx_q = NULL; }
-    if (NULL != tx_q) { vQueueDelete(tx_q); tx_q = NULL; }
+    usart_disable_rx_interrupt(info->pin);
+    nvic_disable_irq(info->irq);
+    usart_disable(info->pin);
+    rcc_periph_clock_disable(info->rcc_usart);
+    rcc_periph_clock_disable(info->rcc_gpio);
+    if (NULL != dev->txh()) { vTaskDelete(dev->txh()); dev->txh() = NULL; }
+    if (NULL != dev->txq()) { vQueueDelete(dev->txq()); dev->txq() = NULL; }
     return -1;
+}
+
+static void yield()
+{
+  taskYIELD();
 }
 
 } // extern "C"
@@ -178,63 +211,99 @@ namespace btr
 
 /////////////////////////////////////////////// PUBLIC /////////////////////////////////////////////
 
+//============================================= LIFECYCLE ==========================================
+
+Usart::Usart(uint8_t id)
+  :
+  id_(id),
+  tx_h_(NULL),
+  tx_q_(NULL),
+  rx_head_(0),
+  rx_tail_(0),
+  rx_buff_()
+{
+}	
+
 //============================================= OPERATIONS =========================================
+
+static Usart usart_1(1);
+static Usart usart_2(2);
+static Usart usart_3(3);
 
 // static
 Usart* Usart::instance(uint32_t usart_id)
 {
   switch (usart_id) {
     case 1: {
-#if defined(BTR_USART1_ENABLED)
-      static Usart usart_1;
-
-      if (false == usart_1->isOpen()) {
-        initUsart(...);
-        //RCC_USART1, NVIC_USART1_IRQ
-      }
       return &usart_1;
-#else
-      return NULL;
-#endif
     }
     case 2: {
-#if defined(BTR_ENABLE_USART2)
-      static Usart usart_2(usart_id, baud_rate, data_bits, parity);
-      //RCC_USART2, NVIC_USART2_IRQ
       return &usart_2;
-#else
-      return NULL;
-#endif
     }
     case 3: {
-#if defined(BTR_ENABLE_USART3)
-      static Usart usart_3(usart_id, baud_rate, data_bits, parity);
-      //RCC_USART3, NVIC_USART3_IRQ
       return &usart_3;
-#else
-      return NULL;
-#endif
     }
     default:
       return NULL;
   }
 }
 
-bool Usart::isOpen() const
+bool Usart::isOpen()
 {
-  return (tx_q_ != NULL || rx_q_ != NULL);
+  return (tx_h_ != NULL);
 }
 
-int Usart::open(bool init_gpio, uint32_t priority)
+int Usart::open()
 {
-  if (false == ready_) {
-    initUsb(init_gpio, priority);
+  int rc = 0;
 
-    while (false == ready_) {
-      taskYIELD();
-    }
+  switch (id_) {
+    case 1:
+      if (false == isOpen()) {
+        rc = initUsart(
+            this,
+            BTR_USART1_BAUD,
+            BTR_USART1_DATA_BITS,
+            BTR_USART1_STOP_BITS,
+            BTR_USART1_PARITY,
+            BTR_USART1_RTS,
+            BTR_USART1_CTS,
+            BTR_USART1_NAME,
+            BTR_USART_TX_BUFF_SIZE,
+            BTR_USART_PRIORITY);
+      }
+    case 2:
+      if (false == isOpen()) {
+        rc = initUsart(
+            this,
+            BTR_USART2_BAUD,
+            BTR_USART2_DATA_BITS,
+            BTR_USART2_STOP_BITS,
+            BTR_USART2_PARITY,
+            BTR_USART2_RTS,
+            BTR_USART2_CTS,
+            BTR_USART2_NAME,
+            BTR_USART_TX_BUFF_SIZE,
+            BTR_USART_PRIORITY);
+      }
+    case 3:
+      if (false == isOpen()) {
+        rc = initUsart(
+            this,
+            BTR_USART3_BAUD,
+            BTR_USART3_DATA_BITS,
+            BTR_USART3_STOP_BITS,
+            BTR_USART3_PARITY,
+            BTR_USART3_RTS,
+            BTR_USART3_CTS,
+            BTR_USART3_NAME,
+            BTR_USART_TX_BUFF_SIZE,
+            BTR_USART_PRIORITY);
+      }
+    default:
+      rc = -1;
   }
-  return 0;
+  return rc;
 }
 
 void Usart::close()
@@ -245,36 +314,55 @@ void Usart::close()
 int Usart::setTimeout(uint32_t timeout)
 {
   (void) timeout;
+  return 0;
 }
 
 int Usart::available()
 {
-  return uxQueueMessagesWaiting(rx_q_);
+  // Provide available input bytes or an indication that there is input
+  return (rx_head_ != rx_tail_);
 }
 
-int Usart::send(char ch)
+int Usart::flush(DirectionType queue_selector)
 {
-  return (pdPASS == xQueueSend(tx_q_, &ch, TX_Q_DELAY) ? 0 : -1);
+  (void) queue_selector;
+  // TODO implement flush
+  return 0;
 }
 
-int Usart::send(const char* buff)
+int Usart::send(char ch, bool drain)
+{
+  if (false == drain) {
+    return (pdPASS == xQueueSend(tx_q_, &ch, BTR_TX_Q_DELAY) ? 0 : -1);
+  } else {
+    while (uxQueueMessagesWaiting(txq()) > 0) {
+      yield();
+    }
+    struct UsartInfo* info = &usart_info_[id_ - 1];
+    usart_send_blocking(info->pin, ch);
+    return 0;
+  }
+}
+
+int Usart::send(const char* buff, bool drain)
 {
   int rc = 0;
 
   while (*buff) {
-    if (0 != (rc = send(*buff++))) {
+    if (0 != (rc = send(*buff++, drain))) {
       break;
     }
   }
   return rc;
 }
 
-int Usart::send(const char* buff, uint16_t bytes)
+int Usart::send(const char* buff, uint32_t bytes, bool drain)
 {
+  (void) drain;
   int rc = 0;
 
   while (bytes-- > 0) {
-    if (0 != (rc = send(*buff))) {
+    if (0 != (rc = send(*buff, drain))) {
       break;
     }
     ++buff;
@@ -284,20 +372,26 @@ int Usart::send(const char* buff, uint16_t bytes)
 
 int Usart::recv()
 {
-  char ch;
+  char ch = -1;
 
-  if (xQueueReceive(rx_q_, &ch, TX_Q_DELAY) != pdPASS) {
-    return -1;
+	if (rx_head_ != rx_tail_) {
+    ch = rx_buff_[rx_head_];	
+    rx_head_ = (rx_head_ + 1 ) % BTR_USART_RX_BUFF_SIZE;
   }
   return ch;
 }
 
-int Usart::recv(char* buff, uint16_t bytes)
+int Usart::recv(char* buff, uint32_t bytes)
 {
-  int32_t byte_idx = 0;
+  uint32_t byte_idx = 0;
 
   while (bytes > 0 && (byte_idx + 1) < bytes) {
     int ch = recv();
+
+    if (-1 == ch) {
+      yield();
+      continue;
+    }
     buff[byte_idx++] = (char) ch;
   }
 
@@ -311,20 +405,8 @@ int Usart::recv(char* buff, uint16_t bytes)
 
 /////////////////////////////////////////////// PRIVATE ////////////////////////////////////////////
 
-//============================================= LIFECYCLE ==========================================
-
-Usart::Usart(const char* name)
-  :
-    HardwareStream()
-    open_(false),
-    name_(name),
-    tx_q_(NULL),
-    rx_q_(NULL)
-{
-}
-
 //============================================= OPERATIONS =========================================
 
 } // namespace btr
 
-#endif // defined(BTR_ENABLE_USART)
+#endif // defined(BTR_STM32_ENABLE_USART)

@@ -9,7 +9,5 @@ include_directories(${libopencm3_INC_DIR})
 include(freertos)
 include_directories(${FREERTOS_INC_DIRS})
 
-add_definitions(-DBTR_ENABLE_USB=1)
-
 find_srcs()
 build_lib(SRCS ${SOURCES})

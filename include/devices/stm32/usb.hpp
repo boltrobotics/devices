@@ -7,7 +7,7 @@
 // SYSTEM INCLUDES
 
 // PROJECT INCLUDES
-#include "devices/hardware_stream.hpp"
+#include "devices/defines.hpp"
 
 namespace btr
 {
@@ -15,15 +15,13 @@ namespace btr
 /**
  * The class provides an interface to USB device on stm32f103c8t6 microcontroller.
  */
-class Usb : public HardwareStream
+class Usb
 {
 public:
 
 // LIFECYCLE
 
-  /**
-   * Dtor.
-   */
+  Usb() = default;
   ~Usb() = default;
 
 // OPERATIONS
@@ -36,63 +34,59 @@ public:
   static Usb* instance();
 
   /**
+   * @see HardwareStream::isOpen
+   */
+  static bool isOpen();
+
+  /**
    * @see HardwareStream::init
    */
-  virtual int open(bool init_gpio, uint32_t priority) override;
+  static int open();
 
   /**
    * @see HardwareStream::shutdown
    */
-  virtual void close() override;
+  static void close();
 
   /**
    * @see HardwareStream::setTimeout
    */
-  virtual int setTimeout(uint32_t timeout) = 0;
+  static int setTimeout(uint32_t timeout);
 
   /**
    * @see HardwareStream::available
    */
-  virtual int available() override;
+  static int available();
 
   /**
    * @see HardwareStream::flush
    */
-  virtual int flush(DirectionType queue_selector) override;
+  static int flush(DirectionType queue_selector);
 
   /**
    * @see HardwareStream::send
    */
-  virtual int send(char ch) override;
+  static int send(char ch, bool drain = false);
 
   /**
    * @see HardwareStream::send
    */
-  virtual int send(const char* buff) override;
+  static int send(const char* buff, bool drain = false);
 
   /**
    * @see HardwareStream::send
    */
-  virtual int send(const char* buff, uint16_t bytes) override;
+  static int send(const char* buff, uint32_t bytes, bool drain = false);
 
   /**
    * @see HardwareStream::recv
    */
-  virtual int recv() override;
+  static int recv();
 
   /**
    * @see HardwareStream::recv
    */
-  virtual int recv(char* buff, uint16_t bytes) override;
-
-private:
-
-// LIFECYCLE
-
-  /**
-   * Ctor.
-   */
-  Usb();
+  static int recv(char* buff, uint32_t bytes);
 };
 
 } // namespace btr

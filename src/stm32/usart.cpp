@@ -33,11 +33,11 @@ extern "C" {
 // Hardware I/O {
 
 struct UsartInfo {
-	rcc_periph_clken rcc_gpio;
-	rcc_periph_clken rcc_usart;
+  rcc_periph_clken rcc_gpio;
+  rcc_periph_clken rcc_usart;
   uint32_t port;
-	uint32_t pin;
-	uint32_t irq;
+  uint32_t pin;
+  uint32_t irq;
   uint16_t tx;
   uint16_t rx;
   uint16_t cts;
@@ -45,27 +45,27 @@ struct UsartInfo {
 };
 
 static struct UsartInfo usart_info_[] = {
-	{ RCC_GPIOA, RCC_USART1, GPIOA, USART1, NVIC_USART1_IRQ, GPIO_USART1_TX, GPIO_USART1_RX,
+  { RCC_GPIOA, RCC_USART1, GPIOA, USART1, NVIC_USART1_IRQ, GPIO_USART1_TX, GPIO_USART1_RX,
     GPIO11, GPIO12 },
-	{ RCC_GPIOA, RCC_USART2, GPIOA, USART2, NVIC_USART2_IRQ, GPIO_USART2_TX, GPIO_USART2_RX,
+  { RCC_GPIOA, RCC_USART2, GPIOA, USART2, NVIC_USART2_IRQ, GPIO_USART2_TX, GPIO_USART2_RX,
     GPIO0, GPIO1 },
-	{ RCC_GPIOB, RCC_USART3, GPIOB, USART3, NVIC_USART3_IRQ, GPIO_USART3_TX, GPIO_USART3_RX,
+  { RCC_GPIOB, RCC_USART3, GPIOB, USART3, NVIC_USART3_IRQ, GPIO_USART3_TX, GPIO_USART3_RX,
     GPIO13, GPIO14 }
 };
 
 static void txTask(void* arg)
 {
   btr::Usart* dev = (btr::Usart*) arg;
-	uint32_t pin = usart_info_[dev->id() - 1].pin;
+  uint32_t pin = usart_info_[dev->id() - 1].pin;
   char ch;
 
   for (;;) {
-		if (pdPASS == xQueueReceive(dev->txq(), &ch, 500)) {
-			while (false == usart_get_flag(pin, USART_SR_TXE)) {
-				taskYIELD();
+    if (pdPASS == xQueueReceive(dev->txq(), &ch, 500)) {
+      while (false == usart_get_flag(pin, USART_SR_TXE)) {
+        taskYIELD();
       }
       gpio_toggle(BTR_BUILTIN_LED_PORT, BTR_BUILTIN_LED_PIN);
-			usart_send(pin, ch);
+      usart_send(pin, ch);
     }
   }
 }
@@ -74,38 +74,38 @@ static void onRecv(uint8_t id)
 {
   btr::Usart* dev = btr::Usart::instance(id);
 
-	if (NULL == dev) {
-		return;
+  if (NULL == dev) {
+    return;
   }
 
   struct UsartInfo* info = &usart_info_[dev->id() - 1];
 
-	while (USART_SR(info->pin) & USART_SR_RXNE) {
-		char ch = USART_DR(info->pin);
-		uint32_t ntail = (dev->rxTail() + 1) % BTR_USART_RX_BUFF_SIZE;
+  while (USART_SR(info->pin) & USART_SR_RXNE) {
+    char ch = USART_DR(info->pin);
+    uint32_t ntail = (dev->rxTail() + 1) % BTR_USART_RX_BUFF_SIZE;
 
     // Save data if buffer has room, discard the data if there is no room.
-		if (ntail != dev->rxHead()) {
-			dev->rxBuff()[dev->rxTail()] = ch;
-			dev->rxTail() = ntail;
-		}
-	}
+    if (ntail != dev->rxHead()) {
+      dev->rxBuff()[dev->rxTail()] = ch;
+      dev->rxTail() = ntail;
+    }
+  }
   gpio_toggle(BTR_BUILTIN_LED_PORT, BTR_BUILTIN_LED_PIN);
 }
 
 void usart1_isr()
 {
-	onRecv(1);
+  onRecv(1);
 }
 
 void usart2_isr()
 {
-	onRecv(2);
+  onRecv(2);
 }
 
 void usart3_isr()
 {
-	onRecv(3);
+  onRecv(3);
 }
 
 // } Hardware I/O
@@ -128,9 +128,9 @@ static int initUsart(
   }
 
   struct UsartInfo* info = &usart_info_[dev->id() - 1];
-	usart_disable_rx_interrupt(info->pin);
+  usart_disable_rx_interrupt(info->pin);
 
-	switch (parity) {
+  switch (parity) {
     case 'N':
       parity = USART_PARITY_NONE;
       break;
@@ -143,28 +143,28 @@ static int initUsart(
     default:
       errno = EINVAL;
       return -1;
-	}
+  }
 
-	int flow_ctrl = USART_FLOWCONTROL_NONE;
+  int flow_ctrl = USART_FLOWCONTROL_NONE;
 
-	if (rts) {
-		if (cts) {
-			flow_ctrl = USART_FLOWCONTROL_RTS_CTS;
+  if (rts) {
+    if (cts) {
+      flow_ctrl = USART_FLOWCONTROL_RTS_CTS;
       gpio_set_mode(info->port, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, info->cts); 
       gpio_set_mode(info->port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, info->rts);
     } else {
       flow_ctrl = USART_FLOWCONTROL_RTS;
       gpio_set_mode(info->port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, info->rts);
     }
-	} else if (cts) {
-		flow_ctrl = USART_FLOWCONTROL_CTS;
+  } else if (cts) {
+    flow_ctrl = USART_FLOWCONTROL_CTS;
     gpio_set_mode(info->port, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, info->cts); 
-	}
+  }
 
   rcc_periph_clock_enable(info->rcc_gpio);
   rcc_periph_clock_enable(info->rcc_usart);
   gpio_set_mode(info->port, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, info->tx);
-	gpio_set_mode(info->port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, info->rx);
+  gpio_set_mode(info->port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, info->rx);
 
   usart_set_baudrate(info->pin, baud_rate);
   usart_set_databits(info->pin, data_bits);
@@ -186,7 +186,7 @@ static int initUsart(
   usart_enable_rx_interrupt(info->pin);
   usart_enable(info->pin);
 
-	return 0;
+  return 0;
 
   cleanup:
     usart_disable_rx_interrupt(info->pin);
@@ -222,7 +222,7 @@ Usart::Usart(uint8_t id)
   rx_tail_(0),
   rx_buff_()
 {
-}	
+} 
 
 //============================================= OPERATIONS =========================================
 
@@ -374,8 +374,8 @@ int Usart::recv()
 {
   char ch = -1;
 
-	if (rx_head_ != rx_tail_) {
-    ch = rx_buff_[rx_head_];	
+  if (rx_head_ != rx_tail_) {
+    ch = rx_buff_[rx_head_];  
     rx_head_ = (rx_head_ + 1 ) % BTR_USART_RX_BUFF_SIZE;
   }
   return ch;

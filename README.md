@@ -11,10 +11,11 @@ following an <a href="https://github.com/boltrobotics/cmake-helpers#Example">exa
 
 * [x86](#x86)
   * [PseudoTTY](#PseudoTTY)
-  * [Uart](#Uart)
-  * [UartTermios](#UartTermios)
+  * [Usart](#Usart)
+  * [UsartTermios](#UsartTermios)
 * [STM32](#stm32)
   * [Usb](#Usb)
+  * [Usart](#stm32_Usart)
   * [PwmMotor2Wire](#PwmMotor2Wire)
   * [PwmMotor3Wire](#PwmMotor3Wire)
 * [AVR](#avr)
@@ -28,27 +29,31 @@ following an <a href="https://github.com/boltrobotics/cmake-helpers#Example">exa
 
 ### <a name="PseudoTTY" href="https://github.com/boltrobotics/devices/tree/master/include/devices/x86/pseudo_tty.hpp" target="_blank">PseudoTTY</a>
 
-The class creates two serial devices using <a href="https://linux.die.net/man/1/socat" target="_blank">socat</a> utility. PseudoTTY is useful for testing serial client or server. The unit tests for Uart class use it for similating serial ports.
+The class creates two serial devices using <a href="https://linux.die.net/man/1/socat" target="_blank">socat</a> utility. PseudoTTY is useful for testing serial client or server. The unit tests for Usart class use it for similating serial ports.
 
-### <a name="Uart" href="https://github.com/boltrobotics/devices/tree/master/include/devices/x86/uart.hpp" target="_blank">Uart</a>
+### <a name="Usart" href="https://github.com/boltrobotics/devices/tree/master/include/devices/x86/usart.hpp" target="_blank">Usart</a>
 
 The class provides an interface for communication over serial connection. Each read/write
 is configured to time out if the operation doesn't complete within a specified window. The code uses
 Boost ASIO library.
 
-<a name="uart_test" href="https://github.com/boltrobotics/devices/tree/master/test/uart_test.cpp" target="_blank">uart_test.cpp</a> contains unit tests for Uart class.
+<a name="usart_test" href="https://github.com/boltrobotics/devices/tree/master/test/usart_test.cpp" target="_blank">usart_test.cpp</a> contains unit tests for Usart class.
 
-### <a name="UartTermios" href="https://github.com/boltrobotics/devices/tree/master/include/devices/x86/uart_termios.hpp" target="_blank">UartTermios</a>
+### <a name="UsartTermios" href="https://github.com/boltrobotics/devices/tree/master/include/devices/x86/usart_termios.hpp" target="_blank">UsartTermios</a>
 
-Class functionality is similar to [Uart](#Uart) but using termios library.
+Class functionality is similar to [Usart](#Usart) but using termios library.
 
-<a name="uart_termios_test" href="https://github.com/boltrobotics/devices/tree/master/test/uart_termios_test.cpp" target="_blank">uart_termios_test.cpp</a> contains unit tests for Uart class.
+<a name="usart_termios_test" href="https://github.com/boltrobotics/devices/tree/master/test/usart_termios_test.cpp" target="_blank">usart_termios_test.cpp</a> contains unit tests for Usart class.
 
 ## <a name="stm32">STM32</a>
 
 ### <a name="Usb" href="https://github.com/boltrobotics/devices/tree/master/include/devices/stm32/usb.hpp" target="_blank">Usb</a>
 
 The class provides an interface to transfer data over USB connection.
+
+### <a name="stm32_Usart" href="https://github.com/boltrobotics/devices/tree/master/include/devices/stm32/usart.hpp" target="_blank">Usart</a>
+
+The class provides an interface for communication over serial connection.
 
 ### <a name="PwmMotor3Wire" href="https://github.com/boltrobotics/devices/tree/master/include/devices/stm32/pwm_motor_3wire.hpp" target="_blank">PwmMotor3Wire</a>
 

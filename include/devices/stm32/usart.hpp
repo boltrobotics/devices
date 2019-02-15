@@ -137,9 +137,9 @@ private:
   uint8_t id_;
   TaskHandle_t tx_h_;
   QueueHandle_t tx_q_;
-	volatile uint16_t rx_head_;
-	volatile uint16_t rx_tail_;
-	uint8_t rx_buff_[BTR_USART_RX_BUFF_SIZE];
+  volatile uint16_t rx_head_;
+  volatile uint16_t rx_tail_;
+  uint8_t rx_buff_[BTR_USART_RX_BUFF_SIZE];
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

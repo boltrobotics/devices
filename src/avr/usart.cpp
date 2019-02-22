@@ -2,22 +2,13 @@
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
 // SYSTEM INCLUDES
-#include <libopencm3/stm32/rcc.h>
-#include <libopencm3/stm32/gpio.h>
-#include <libopencm3/stm32/usart.h>
-#include <libopencm3/cm3/nvic.h>
 #include <errno.h>
 
 // PROJECT INCLUDES
-#include "devices/stm32/usart.hpp"  // class implemented
+#include "devices/avr/usart.hpp"  // class implemented
 
 #if BTR_USART1_ENABLED > 0 || BTR_USART2_ENABLED > 0 || \
     BTR_USART3_ENABLED > 0 || BTR_USART4_ENABLED > 0
-
-// Internal macros
-#ifndef BTR_USART_PRIORITY
-#define BTR_USART_PRIORITY (configMAX_PRIORITIES - 1)
-#endif
 
 extern "C" {
 
@@ -56,49 +47,53 @@ static void txTask(void* arg)
       while (false == usart_get_flag(pin, USART_SR_TXE)) {
         taskYIELD();
       }
-      LED_TOGGLE();
+      gpio_toggle(BTR_BUILTIN_LED_PORT, BTR_BUILTIN_LED_PIN);
       usart_send(pin, ch);
     }
   }
 }
 
-static void onRecv(uint8_t id)
+static void onRecv(uint8_t usart_id)
 {
-  btr::Usart* dev = btr::Usart::instance(id);
+  btr::Usart* dev = btr::Usart::instance(usart_id);
 
-  if (NULL == dev) {
-    return;
-  }
-
-  struct UsartInfo* info = &usart_info_[dev->id() - 1];
-
-  while (USART_SR(info->pin) & USART_SR_RXNE) {
-    char ch = USART_DR(info->pin);
+  if (nullptr != dev) {
     uint32_t ntail = (dev->rxTail() + 1) % BTR_USART_RX_BUFF_SIZE;
 
     // Save data if buffer has room, discard the data if there is no room.
     if (ntail != dev->rxHead()) {
-      dev->rxBuff()[dev->rxTail()] = ch;
+      dev->rxBuff()[dev->rxTail()] = UDR;
       dev->rxTail() = ntail;
     }
+    LED_TOGGLE();
   }
-  LED_TOGGLE();
 }
 
-void usart1_isr()
+// ISRs: http://www.nongnu.org/avr-libc/user-manual/group__avr__interrupts.html
+
+#if defined (__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
+ISR(USART_RX_VECT)
 {
   onRecv(1);
 }
-
-void usart2_isr()
+#elif defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+ISR(USART0_RX_VECT)
+{
+  onRecv(1);
+}
+ISR(USART1_RX_VECT)
 {
   onRecv(2);
 }
-
-void usart3_isr()
+ISR(USART2_RX_VECT)
 {
   onRecv(3);
 }
+ISR(USART3_RX_VECT)
+{
+  onRecv(4);
+}
+#endif
 
 // } Hardware I/O
 
@@ -219,37 +214,25 @@ Usart::Usart(uint8_t id)
 
 //============================================= OPERATIONS =========================================
 
-#if BTR_USART1_ENABLED > 0
 static Usart usart_1(1);
-#endif
-#if BTR_USART2_ENABLED > 0
 static Usart usart_2(2);
-#endif
-#if BTR_USART3_ENABLED > 0
 static Usart usart_3(3);
-#endif
 
 // static
 Usart* Usart::instance(uint32_t usart_id)
 {
   switch (usart_id) {
-#if BTR_USART1_ENABLED > 0
     case 1: {
       return &usart_1;
     }
-#endif
-#if BTR_USART2_ENABLED > 0
     case 2: {
       return &usart_2;
     }
-#endif
-#if BTR_USART3_ENABLED > 0
     case 3: {
       return &usart_3;
     }
-#endif
     default:
-      return nullptr;
+      return NULL;
   }
 }
 
@@ -414,4 +397,4 @@ int Usart::recv(char* buff, uint32_t bytes)
 
 } // namespace btr
 
-#endif // BTR_USARTx_ENABLED > 0
+#endif // defined(BTR_AVR_ENABLE_USART)

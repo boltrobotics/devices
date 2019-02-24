@@ -30,6 +30,8 @@
 #include "mb.h"
 #include "mbport.h"
 
+#if THIS_AND_THAT > 0
+
 /* ----------------------- Defines ------------------------------------------*/
 #define MB_TIMER_PRESCALER      ( 1024UL )
 #define MB_TIMER_TICKS          ( F_CPU / MB_TIMER_PRESCALER )
@@ -81,3 +83,5 @@ ISR(TIMER1_COMPA_vect)
 {
     pxMBPortCBTimerExpired();
 }
+
+#endif // THIS_AND_THAT > 0

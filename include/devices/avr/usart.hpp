@@ -9,6 +9,12 @@
 // PROJECT INCLUDES
 #include "devices/defines.hpp"
 
+#define BTR_USART_NO_DATA       0x0100
+#define BTR_USART_OVERFLOW_ERR  0x0200
+#define BTR_USART_PARITY_ERR    0x0400
+#define BTR_USART_OVERRUN_ERR   0x0800
+#define BTR_USART_FRAME_ERR     0x1000
+
 namespace btr
 {
 
@@ -24,7 +30,14 @@ public:
   /**
    * Ctor.
    */
-  Usart(uint8_t id);
+  Usart(
+      uint8_t id,
+      volatile uint8_t* ubrr_h,
+      volatile uint8_t* ubrr_l,
+      volatile uint8_t* ucsr_a,
+      volatile uint8_t* ucsr_b,
+      volatile uint8_t* ucsr_c,
+      volatile uint8_t* udr);
 
   /**
    * Dtor.
@@ -59,10 +72,14 @@ public:
   void close();
 
   /**
-   * @param timeout - timeout in milliseconds
-   * @return 0 on success, -1 on failure
+   * ISR handler.
    */
-  int setTimeout(uint32_t timeout);
+  static void onRecv(uint8_t usart_id);
+
+  /**
+   * ISR handler.
+   */
+  static void onSend(uint8_t usart_id);
 
   /**
    * Check if there is data in receive queue.
@@ -112,47 +129,47 @@ public:
   /**
    * Receive a single character.
    *
-   * @return the received character or -1 on error
+   * @return upper 8 bits contain error code, lower 8 bits may contain a value. Result codes
+   *  are defined at the top of this file.
    */
-  int recv();
+  uint16_t recv();
 
   /**
    * Receive a number of bytes and store in the buffer.
    *
    * @param buff - buffer to store received data
    * @param bytes - the number of bytes to receive
-   * @return bytes received or -1 on error
+   * @return upper 8 bits contain error code(s), lower 8 bits contains zeros
    */
-  int recv(char* buff, uint32_t bytes);
-
-  /**
-   * @return head position of receive circular buffer
-   */
-  volatile uint16_t& rxHead();
-
-  /**
-   * @return tail position of receive circular buffer
-   */
-  volatile uint16_t& rxTail();
-
-  /**
-   * @return receive circular buffer
-   */
-  uint8_t* rxBuff();
-
-  /**
-   * @return USART ID, [1, 3]
-   */
-  uint8_t id();
-
-private:
+  uint16_t recv(char* buff, uint16_t bytes);
 
 // ATTRIBUTES
 
   uint8_t id_;
+  volatile uint8_t* ubrr_h_;
+  volatile uint8_t* ubrr_l_;
+  volatile uint8_t* ucsr_a_;
+  volatile uint8_t* ucsr_b_;
+  volatile uint8_t* ucsr_c_;
+  volatile uint8_t* udr_;
+  volatile uint8_t rx_error_;
+
+#if BTR_USART_RX_BUFF_SIZE > 256
   volatile uint16_t rx_head_;
   volatile uint16_t rx_tail_;
+#else
+  volatile uint8_t rx_head_;
+  volatile uint8_t rx_tail_;
+#endif
+#if BTR_USART_TX_BUFF_SIZE > 256
+  volatile uint16_t tx_head_;
+  volatile uint16_t tx_tail_;
+#else
+  volatile uint8_t tx_head_;
+  volatile uint8_t tx_tail_;
+#endif
   uint8_t rx_buff_[BTR_USART_RX_BUFF_SIZE];
+  uint8_t tx_buff_[BTR_USART_TX_BUFF_SIZE];
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -162,26 +179,6 @@ private:
 /////////////////////////////////////////////// PUBLIC /////////////////////////////////////////////
 
 //============================================= OPERATIONS =========================================
-
-inline volatile uint16_t& Usart::rxHead()
-{
-  return rx_head_;
-}
-
-inline volatile uint16_t& Usart::rxTail()
-{
-  return rx_head_;
-}
-
-inline uint8_t* Usart::rxBuff()
-{
-  return rx_buff_;
-}
-
-inline uint8_t Usart::id()
-{
-  return id_;
-}
 
 } // namespace btr
 

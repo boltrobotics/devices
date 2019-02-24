@@ -2,7 +2,8 @@
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
 // SYSTEM INCLUDES
-#include <errno.h>
+#include <avr/io.h>
+#include <util/atomic.h>
 
 // PROJECT INCLUDES
 #include "devices/avr/usart.hpp"  // class implemented
@@ -12,324 +13,374 @@
 
 extern "C" {
 
+#if BTR_USART_USE_2X > 0
+#define BAUD_CALC(BAUD) (((F_CPU) + 4UL * (BAUD)) /  (8UL * (BAUD)) - 1UL)
+#else
+#define BAUD_CALC(BAUD) (((F_CPU) + 8UL * (BAUD)) / (16UL * (BAUD)) - 1UL)
+#endif
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Register bits {
+
+#if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__) || \
+    defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+
+// UCSRnA (status)
+#define RXC       RXC0    // Bit 7. Receive complete
+#define TXC       TXC0    // Bit 6. Transmit complete
+#define UDRE      UDRE0   // Bit 5. Transmit buffer empty
+#define FE        FE0     // Bit 4. Frame error
+#define DOR       DOR0    // Bit 3. Data OverRun
+#define UPE       UPE0    // Bit 2. Parity error
+#define U2X       U2X0    // Bit 1. Double transmission speed
+#define MPCM      MPCM0   // Bit 0. Multi-processor communication mode
+// UCSRnB (control 1)
+#define RXCIE     RXCIE0  // Bit 7. Receive complete interrupt enable
+#define TXCIE     TXCIE0  // Bit 6. Transmit complete interrupt enable
+#define UDRIE     UDRIE0  // Bit 5. Transmit buffer empty interrupt enable
+#define RXEN      RXEN0   // Bit 4. Receive enable
+#define TXEN      TXEN0   // Bit 3. Transmit enable
+#define UCSZ2     UCSZ02  // Bit 2. Character size 2
+// UCSRnC (control 2)
+#define UCSZ1     UCSZ01  // Bit 2. Character size 1
+#define UCSZ0     UCSZ00  // Bit 1. Character size 0
+#endif // __AVR
+
+// } Register bits
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// RS485 {
+
+#if BTR_RTS_ENABLED > 0
+
+#define RTS_PIN   PB0
+#define RTS_DDR   DDRB
+#define RTS_PORT  PORTB
+
+#define RTS_INIT \
+  do { \
+    RTS_DDR |= _BV(RTS_PIN); \
+    RTS_PORT &= ~(_BV(RTS_PIN)); \
+  } while (0);
+
+#define RTS_HIGH \
+  do { \
+    RTS_PORT |= _BV(RTS_PIN); \
+  } while (0);
+
+#define RTS_LOW \
+  do { \
+    RTS_PORT &= ~(_BV(RTS_PIN)); \
+  } while (0);
+
+#endif // BTR_RTS_ENABLED
+
+// } RS485
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Hardware I/O {
-
-struct UsartInfo {
-  rcc_periph_clken rcc_gpio;
-  rcc_periph_clken rcc_usart;
-  uint32_t port;
-  uint32_t pin;
-  uint32_t irq;
-  uint16_t tx;
-  uint16_t rx;
-  uint16_t cts;
-  uint16_t rts;
-};
-
-static struct UsartInfo usart_info_[] = {
-  { RCC_GPIOA, RCC_USART1, GPIOA, USART1, NVIC_USART1_IRQ, GPIO_USART1_TX, GPIO_USART1_RX,
-    GPIO11, GPIO12 },
-  { RCC_GPIOA, RCC_USART2, GPIOA, USART2, NVIC_USART2_IRQ, GPIO_USART2_TX, GPIO_USART2_RX,
-    GPIO0, GPIO1 },
-  { RCC_GPIOB, RCC_USART3, GPIOB, USART3, NVIC_USART3_IRQ, GPIO_USART3_TX, GPIO_USART3_RX,
-    GPIO13, GPIO14 }
-};
-
-static void txTask(void* arg)
-{
-  btr::Usart* dev = (btr::Usart*) arg;
-  uint32_t pin = usart_info_[dev->id() - 1].pin;
-  char ch;
-
-  for (;;) {
-    if (pdPASS == xQueueReceive(dev->txq(), &ch, 500)) {
-      while (false == usart_get_flag(pin, USART_SR_TXE)) {
-        taskYIELD();
-      }
-      gpio_toggle(BTR_BUILTIN_LED_PORT, BTR_BUILTIN_LED_PIN);
-      usart_send(pin, ch);
-    }
-  }
-}
-
-static void onRecv(uint8_t usart_id)
-{
-  btr::Usart* dev = btr::Usart::instance(usart_id);
-
-  if (nullptr != dev) {
-    uint32_t ntail = (dev->rxTail() + 1) % BTR_USART_RX_BUFF_SIZE;
-
-    // Save data if buffer has room, discard the data if there is no room.
-    if (ntail != dev->rxHead()) {
-      dev->rxBuff()[dev->rxTail()] = UDR;
-      dev->rxTail() = ntail;
-    }
-    LED_TOGGLE();
-  }
-}
 
 // ISRs: http://www.nongnu.org/avr-libc/user-manual/group__avr__interrupts.html
 
 #if defined (__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
-ISR(USART_RX_VECT)
+#if BTR_USART1_ENABLED > 0
+ISR(USART_RX_vect)
 {
-  onRecv(1);
+  btr::Usart::onRecv(1);
 }
-#elif defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-ISR(USART0_RX_VECT)
+ISR(USART_UDRE_vect)
 {
-  onRecv(1);
-}
-ISR(USART1_RX_VECT)
-{
-  onRecv(2);
-}
-ISR(USART2_RX_VECT)
-{
-  onRecv(3);
-}
-ISR(USART3_RX_VECT)
-{
-  onRecv(4);
+  btr::Usart::onSend(1);
 }
 #endif
 
+#elif defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+
+#if BTR_USART1_ENABLED > 0
+ISR(USART0_RX_vect)
+{
+  btr::Usart::onRecv(1);
+}
+ISR(USART0_UDRE_vect)
+{
+  btr::Usart::onSend(1);
+}
+#endif
+#if BTR_USART2_ENABLED > 0
+ISR(USART1_RX_vect)
+{
+  btr::Usart::onRecv(2);
+}
+ISR(USART1_UDRE_vect)
+{
+  btr::Usart::onSend(2);
+}
+#endif
+#if BTR_USART3_ENABLED > 0
+ISR(USART2_RX_vect)
+{
+  btr::Usart::onRecv(3);
+}
+ISR(USART2_UDRE_vect)
+{
+  btr::Usart::onSend(3);
+}
+#endif
+#if BTR_USART4_ENABLED > 0
+ISR(USART3_RX_vect)
+{
+  btr::Usart::onRecv(4);
+}
+ISR(USART3_UDRE_vect)
+{
+  btr::Usart::onSend(4);
+}
+#endif // BTR_USARTx
+#endif // __AVR_
+
 // } Hardware I/O
-
-static int initUsart(
-    btr::Usart* dev,
-    uint32_t baud_rate,
-    uint8_t data_bits,
-    uint8_t stop_bits,
-    int parity,
-    int rts,
-    int cts,
-    const char* tx_name,
-    uint32_t tx_q_size,
-    int priority)
-{
-  if (dev->id() < BTR_USART_MIN_ID || dev->id() > BTR_USART_MAX_ID) {
-    errno = EINVAL;
-    return -1;
-  }
-
-  struct UsartInfo* info = &usart_info_[dev->id() - 1];
-  usart_disable_rx_interrupt(info->pin);
-
-  switch (parity) {
-    case 'N':
-      parity = USART_PARITY_NONE;
-      break;
-    case 'O':
-      parity = USART_PARITY_ODD;
-      break;
-    case 'E':
-      parity = USART_PARITY_EVEN;
-      break;
-    default:
-      errno = EINVAL;
-      return -1;
-  }
-
-  int flow_ctrl = USART_FLOWCONTROL_NONE;
-
-  if (rts) {
-    if (cts) {
-      flow_ctrl = USART_FLOWCONTROL_RTS_CTS;
-      gpio_set_mode(info->port, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, info->cts); 
-      gpio_set_mode(info->port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, info->rts);
-    } else {
-      flow_ctrl = USART_FLOWCONTROL_RTS;
-      gpio_set_mode(info->port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, info->rts);
-    }
-  } else if (cts) {
-    flow_ctrl = USART_FLOWCONTROL_CTS;
-    gpio_set_mode(info->port, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, info->cts); 
-  }
-
-  rcc_periph_clock_enable(info->rcc_gpio);
-  rcc_periph_clock_enable(info->rcc_usart);
-  gpio_set_mode(info->port, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, info->tx);
-  gpio_set_mode(info->port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, info->rx);
-
-  usart_set_baudrate(info->pin, baud_rate);
-  usart_set_databits(info->pin, data_bits);
-  usart_set_stopbits(info->pin, stop_bits);
-  usart_set_parity(info->pin, parity);
-  usart_set_mode(info->pin, USART_MODE_TX_RX);
-  usart_set_flow_control(info->pin, flow_ctrl);
-
-  if (NULL == (dev->txq() = xQueueCreate(tx_q_size, sizeof(char)))) {
-    goto cleanup;
-  }
-
-  if (pdPASS != xTaskCreate(
-        txTask, tx_name, configMINIMAL_STACK_SIZE, dev, priority, &dev->txh()))
-  {
-    goto cleanup;
-  }
-
-  nvic_enable_irq(info->irq);
-  usart_enable_rx_interrupt(info->pin);
-  usart_enable(info->pin);
-
-  return 0;
-
-  cleanup:
-    usart_disable_rx_interrupt(info->pin);
-    nvic_disable_irq(info->irq);
-    usart_disable(info->pin);
-    rcc_periph_clock_disable(info->rcc_usart);
-    rcc_periph_clock_disable(info->rcc_gpio);
-    if (NULL != dev->txh()) { vTaskDelete(dev->txh()); dev->txh() = NULL; }
-    if (NULL != dev->txq()) { vQueueDelete(dev->txq()); dev->txq() = NULL; }
-    return -1;
-}
-
-static void yield()
-{
-  taskYIELD();
-}
 
 } // extern "C"
 
 namespace btr
 {
 
+#if BTR_USART1_ENABLED > 0
+#if defined(UBRRH) && defined(UBRRL)
+static Usart usart_1(1, &UBRRH, &UBRRL, &UCSRA, &UCSRB, &UCSRC, &UDR);
+#else
+static Usart usart_1(1, &UBRR0H, &UBRR0L, &UCSR0A, &UCSR0B, &UCSR0C, &UDR0);
+#endif // UBRRH && UBRRL
+#endif // BTR_USART1_ENABLED
+
+#if BTR_USART2_ENABLED > 0
+static Usart usart_2(2, &UBRR1H, &UBRR1L, &UCSR1A, &UCSR1B, &UCSR1C, &UDR1);
+#endif
+
+#if BTR_USART3_ENABLED > 0
+static Usart usart_3(3, &UBRR2H, &UBRR2L, &UCSR2A, &UCSR2B, &UCSR2C, &UDR2);
+#endif
+
+#if BTR_USART4_ENABLED > 0
+static Usart usart_4(4, &UBRR3H, &UBRR3L, &UCSR3A, &UCSR3B, &UCSR3C, &UDR3);
+#endif
+
 /////////////////////////////////////////////// PUBLIC /////////////////////////////////////////////
 
 //============================================= LIFECYCLE ==========================================
 
-Usart::Usart(uint8_t id)
+Usart::Usart(
+    uint8_t id,
+    volatile uint8_t* ubrr_h,
+    volatile uint8_t* ubrr_l,
+    volatile uint8_t* ucsr_a,
+    volatile uint8_t* ucsr_b,
+    volatile uint8_t* ucsr_c,
+    volatile uint8_t* udr
+    )
   :
-  id_(id),
-  tx_h_(NULL),
-  tx_q_(NULL),
-  rx_head_(0),
-  rx_tail_(0),
-  rx_buff_()
+    id_(id),
+    ubrr_h_(ubrr_h),
+    ubrr_l_(ubrr_l),
+    ucsr_a_(ucsr_a),
+    ucsr_b_(ucsr_b),
+    ucsr_c_(ucsr_c),
+    udr_(udr),
+    rx_error_(0),
+    rx_head_(0),
+    rx_tail_(0),
+    tx_head_(0),
+    tx_tail_(0),
+    rx_buff_(),
+    tx_buff_()
 {
 } 
 
 //============================================= OPERATIONS =========================================
 
-static Usart usart_1(1);
-static Usart usart_2(2);
-static Usart usart_3(3);
-
 // static
 Usart* Usart::instance(uint32_t usart_id)
 {
   switch (usart_id) {
-    case 1: {
+#if BTR_USART1_ENABLED > 0
+    case 1:
       return &usart_1;
-    }
-    case 2: {
+#endif
+#if BTR_USART2_ENABLED > 0
+    case 2:
       return &usart_2;
-    }
-    case 3: {
+#endif
+#if BTR_USART3_ENABLED > 0
+    case 3:
       return &usart_3;
-    }
+#endif
+#if BTR_USART4_ENABLED > 0
+    case 4:
+      return &usart_4;
+#endif
     default:
-      return NULL;
+      return nullptr;
   }
 }
 
 bool Usart::isOpen()
 {
-  return (tx_h_ != NULL);
+  return (bit_is_set(*ucsr_b_, TXEN) || bit_is_set(*ucsr_b_, RXEN));
 }
 
 int Usart::open()
 {
-  int rc = 0;
+  if (true == isOpen()) {
+    return 0;
+  }
+
+  uint32_t baud_rate = 0;
+  uint8_t data_bits = 8;
+  uint8_t stop_bits = 1;
+  char parity = 'N';
 
   switch (id_) {
     case 1:
-      if (false == isOpen()) {
-        rc = initUsart(
-            this,
-            BTR_USART1_BAUD,
-            BTR_USART1_DATA_BITS,
-            BTR_USART1_STOP_BITS,
-            BTR_USART1_PARITY,
-            BTR_USART1_RTS,
-            BTR_USART1_CTS,
-            BTR_USART1_NAME,
-            BTR_USART_TX_BUFF_SIZE,
-            BTR_USART_PRIORITY);
-      }
+      baud_rate = BTR_USART1_BAUD;
+      data_bits = BTR_USART1_DATA_BITS,
+      stop_bits = BTR_USART1_STOP_BITS,
+      parity = BTR_USART1_PARITY;
+      break;
     case 2:
-      if (false == isOpen()) {
-        rc = initUsart(
-            this,
-            BTR_USART2_BAUD,
-            BTR_USART2_DATA_BITS,
-            BTR_USART2_STOP_BITS,
-            BTR_USART2_PARITY,
-            BTR_USART2_RTS,
-            BTR_USART2_CTS,
-            BTR_USART2_NAME,
-            BTR_USART_TX_BUFF_SIZE,
-            BTR_USART_PRIORITY);
-      }
+      baud_rate = BTR_USART2_BAUD;
+      data_bits = BTR_USART2_DATA_BITS,
+      stop_bits = BTR_USART2_STOP_BITS,
+      parity = BTR_USART2_PARITY;
+      break;
     case 3:
-      if (false == isOpen()) {
-        rc = initUsart(
-            this,
-            BTR_USART3_BAUD,
-            BTR_USART3_DATA_BITS,
-            BTR_USART3_STOP_BITS,
-            BTR_USART3_PARITY,
-            BTR_USART3_RTS,
-            BTR_USART3_CTS,
-            BTR_USART3_NAME,
-            BTR_USART_TX_BUFF_SIZE,
-            BTR_USART_PRIORITY);
-      }
+      baud_rate = BTR_USART3_BAUD;
+      data_bits = BTR_USART3_DATA_BITS,
+      stop_bits = BTR_USART3_STOP_BITS,
+      parity = BTR_USART3_PARITY;
+      break;
+    case 4:
+      baud_rate = BTR_USART4_BAUD;
+      data_bits = BTR_USART4_DATA_BITS,
+      stop_bits = BTR_USART4_STOP_BITS,
+      parity = BTR_USART4_PARITY;
+      break;
     default:
-      rc = -1;
+      return -1;
   }
-  return rc;
+
+  uint16_t baud = BAUD_CALC(baud_rate);
+
+#if BTR_USART_USE_2X > 0
+  *ucsr_a_ = (1 << U2X);
+#else
+  *ucsr_a_ &= ~(1 << U2X);
+#endif
+
+  *ubrr_h_ = (uint8_t) (baud >> 8);
+  *ubrr_l_ = (uint8_t) (baud & 0xFF);
+  *ucsr_c_ = (uint8_t) BTR_USART_CONFIG(parity, stop_bits, data_bits);
+
+  set_bit(*ucsr_b_, TXEN);
+  set_bit(*ucsr_b_, RXEN);
+  set_bit(*ucsr_b_, RXCIE);
+  clear_bit(*ucsr_b_, UDRIE);
+
+  return 0;
 }
 
 void Usart::close()
 {
-  // TODO turn off the clocks, stop transmit task, etc.
+  flush(DirectionType::OUT);
+  clear_bit(*ucsr_b_, TXEN);
+  clear_bit(*ucsr_b_, RXEN);
+  clear_bit(*ucsr_b_, RXCIE);
+  clear_bit(*ucsr_b_, UDRIE);
+  rx_head_ = rx_tail_;
 }
 
-int Usart::setTimeout(uint32_t timeout)
+// static
+void Usart::onRecv(uint8_t usart_id)
 {
-  (void) timeout;
-  return 0;
+  btr::Usart* dev = btr::Usart::instance(usart_id);
+
+  if (nullptr != dev) {
+    dev->rx_error_ = (*(dev->ucsr_a_) & ((1 << FE) | (1 << DOR) | (1 << UPE)));
+    uint16_t head_next = (dev->rx_head_ + 1) % BTR_USART_RX_BUFF_SIZE;
+
+    if (head_next != dev->rx_tail_) {
+      dev->rx_buff_[dev->rx_head_] = *(dev->udr_);
+      dev->rx_head_ = head_next;
+    } else {
+      dev->rx_error_ |= (BTR_USART_OVERFLOW_ERR >> 8);
+    }
+    LED_TOGGLE();
+  }
+}
+
+// static
+void Usart::onSend(uint8_t usart_id)
+{
+  btr::Usart* dev = btr::Usart::instance(usart_id);
+
+  if (nullptr != dev) {
+    uint8_t ch = dev->tx_buff_[dev->tx_tail_];
+    dev->tx_tail_ = (dev->tx_tail_ + 1) % BTR_USART_TX_BUFF_SIZE;
+    *(dev->udr_) = ch;
+
+    if (dev->tx_head_ == dev->tx_tail_) {
+      // Disable transmit buffer empty interrupt since there is no more data to send.
+      clear_bit(*(dev->ucsr_b_), UDRIE);
+    }
+    LED_TOGGLE();
+  }
 }
 
 int Usart::available()
 {
-  // Provide available input bytes or an indication that there is input
-  return (rx_head_ != rx_tail_);
+  uint16_t bytes = BTR_USART_RX_BUFF_SIZE + rx_head_ - rx_tail_;
+  return (bytes % BTR_USART_RX_BUFF_SIZE);
 }
 
 int Usart::flush(DirectionType queue_selector)
 {
   (void) queue_selector;
-  // TODO implement flush
+
+  while (bit_is_set(*ucsr_b_, UDRIE) || bit_is_clear(*ucsr_a_, TXC)) {
+    if (bit_is_clear(SREG, SREG_I) && bit_is_set(*ucsr_b_, UDRIE)) {
+      if (bit_is_set(*ucsr_a_, UDRE)) {
+        // Call manually since global interrupts are disabled.
+        onSend(id_);
+      }
+    }
+  }
   return 0;
 }
 
 int Usart::send(char ch, bool drain)
 {
-  if (false == drain) {
-    return (pdPASS == xQueueSend(tx_q_, &ch, BTR_TX_Q_DELAY) ? 0 : -1);
-  } else {
-    while (uxQueueMessagesWaiting(txq()) > 0) {
-      yield();
+  uint16_t head_next = (tx_head_ + 1) % BTR_USART_TX_BUFF_SIZE;
+
+  while (head_next == tx_tail_) {
+    if (bit_is_clear(SREG, SREG_I)) {
+      if (bit_is_set(*ucsr_a_, UDRE)) {
+        onSend(id_);
+      }
+    } else {
+      // Wait while data is being drained from tx_buff_.
     }
-    struct UsartInfo* info = &usart_info_[id_ - 1];
-    usart_send_blocking(info->pin, ch);
-    return 0;
   }
+
+  tx_buff_[head_next] = ch;
+
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+    tx_head_ = head_next;
+    set_bit(*ucsr_b_, UDRIE);
+  }
+
+  if (true == drain) {
+    flush(DirectionType::OUT);
+  }
+  return 0;
 }
 
 int Usart::send(const char* buff, bool drain)
@@ -337,54 +388,66 @@ int Usart::send(const char* buff, bool drain)
   int rc = 0;
 
   while (*buff) {
-    if (0 != (rc = send(*buff++, drain))) {
+    if (0 != (rc = send(*buff++, false))) {
       break;
     }
+  }
+
+  if (0 == rc && true == drain) {
+    flush(DirectionType::OUT);
   }
   return rc;
 }
 
 int Usart::send(const char* buff, uint32_t bytes, bool drain)
 {
-  (void) drain;
   int rc = 0;
 
   while (bytes-- > 0) {
-    if (0 != (rc = send(*buff, drain))) {
+    if (0 != (rc = send(*buff, false))) {
       break;
     }
     ++buff;
   }
+
+  if (0 == rc && true == drain) {
+    flush(DirectionType::OUT);
+  }
   return rc;
 }
 
-int Usart::recv()
+uint16_t Usart::recv()
 {
-  char ch = -1;
-
   if (rx_head_ != rx_tail_) {
-    ch = rx_buff_[rx_head_];  
-    rx_head_ = (rx_head_ + 1 ) % BTR_USART_RX_BUFF_SIZE;
+    uint8_t ch = rx_buff_[rx_tail_];  
+    rx_tail_ = (rx_tail_ + 1 ) % BTR_USART_RX_BUFF_SIZE;
+
+    uint16_t rc = (rx_error_ << 8);
+    rx_error_ = 0;
+
+    return (rc + ch);
   }
-  return ch;
+  return BTR_USART_NO_DATA;
 }
 
-int Usart::recv(char* buff, uint32_t bytes)
+uint16_t Usart::recv(char* buff, uint16_t bytes)
 {
-  uint32_t byte_idx = 0;
+  uint16_t errors = 0;
+  uint16_t byte_idx = 0;
 
   while (bytes > 0 && (byte_idx + 1) < bytes) {
-    int ch = recv();
+    uint16_t ch = recv();
 
-    if (-1 == ch) {
-      yield();
+    if (BTR_USART_NO_DATA & ch) {
+      // TODO delay and use timeout
       continue;
     }
-    buff[byte_idx++] = (char) ch;
+    errors |= (ch & 0xFF00);
+    buff[byte_idx++] = ch;
   }
 
   buff[byte_idx] = 0;
-  return byte_idx;
+  return errors;
 }
 
 /////////////////////////////////////////////// PROTECTED //////////////////////////////////////////
@@ -397,4 +460,4 @@ int Usart::recv(char* buff, uint32_t bytes)
 
 } // namespace btr
 
-#endif // defined(BTR_AVR_ENABLE_USART)
+#endif // BTR_USARTn_ENABLED

@@ -32,9 +32,10 @@
 #include "mb.h"
 #include "mbport.h"
 
+#if THIS_AND_THAT > 0
+
 #define UART_BAUD_RATE          115200
-#define UART_BAUD_CALC(UART_BAUD_RATE,F_OSC) \
-  ( ( F_OSC ) / ( ( UART_BAUD_RATE ) * 16UL ) - 1 )
+#define UART_BAUD_CALC(UART_BAUD_RATE, F_OSC) (F_OSC / (UART_BAUD_RATE * 16UL - 1)
 
 //#define UART_UCSRB  UCSR0B
 
@@ -142,3 +143,5 @@ ISR(USART_TX_VECT)
   RTS_LOW;
 }
 #endif
+
+#endif // THIS_AND_THAT > 0

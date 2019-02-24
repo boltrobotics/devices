@@ -324,8 +324,8 @@ int Usart::setTimeout(uint32_t timeout)
 
 int Usart::available()
 {
-  // Provide available input bytes or an indication that there is input
-  return (rx_head_ != rx_tail_);
+  uint16_t bytes = BTR_USART_RX_BUFF_SIZE + rx_head_ - rx_tail_;
+  return (bytes % BTR_USART_RX_BUFF_SIZE);
 }
 
 int Usart::flush(DirectionType queue_selector)

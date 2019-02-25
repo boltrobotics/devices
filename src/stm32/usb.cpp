@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
-#if defined(BTR_STM32_ENABLE_USB)
+#if BTR_USB1_ENABLED > 0
 
 // SYSTEM INCLUDES
 #include <libopencm3/stm32/rcc.h>
@@ -437,4 +437,4 @@ int Usb::recv(char* buff, uint32_t bytes)
 
 } // namespace btr
 
-#endif // defined(BTR_ST32_ENABLE_USB)
+#endif // BTR_USB1_ENABLED > 0

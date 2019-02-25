@@ -14,15 +14,7 @@ namespace btr
 // General {
 
 #if BTR_AVR > 0
-
-#if 0
-  #include <avr/io.h> // to enable the following macros
-
-  bit_is_set(sfr, bit)
-  bit_is_clear(sfr, bit)
-  loop_until_bit_is_set(sfr, bit)
-  loop_until_bit_is_clear(sfr, bit)
-#endif
+#include <avr/io.h>
 
 #define BV(bit)               (1 << bit)
 #define set_bit(sfr, bit)     (_SFR_BYTE(sfr) |= BV(bit))  // old sbi()
@@ -65,12 +57,21 @@ namespace btr
 #define BTR_BUILTIN_LED_DDR   DDRB
 #endif
 
-#define LED_ON()  (BTR_BUILTIN_LED_DDR  |= (1 << BTR_BUILTIN_LED_PIN); \
-                   BTR_BUILTIN_LED_PORT |= (1 << BTR_BUILTIN_LED_PIN))
-#define LED_OFF() (BTR_BUILTIN_LED_DDR  &= ~(1 << BTR_BUILTIN_LED_PIN); \
-                   BTR_BUILTIN_LED_PORT &= ~(1 << BTR_BUILTIN_LED_PIN))
-#define LED_TOGGLE() (BTR_BUILTIN_LED_DDR  ^= (1 << BTR_BUILTIN_LED_PIN)); \
-                      (BTR_BUILTIN_LED_PORT ^= (1 << BTR_BUILTIN_LED_PIN))
+#define LED_ON()  \
+  do { \
+    BTR_BUILTIN_LED_DDR  |= (1 << BTR_BUILTIN_LED_PIN); \
+    BTR_BUILTIN_LED_PORT |= (1 << BTR_BUILTIN_LED_PIN); \
+  } while (0);
+#define LED_OFF() \
+  do { \
+    BTR_BUILTIN_LED_DDR  &= ~(1 << BTR_BUILTIN_LED_PIN); \
+    BTR_BUILTIN_LED_PORT &= ~(1 << BTR_BUILTIN_LED_PIN); \
+  } while (0);
+#define LED_TOGGLE() \
+  do { \
+    BTR_BUILTIN_LED_DDR  ^= (1 << BTR_BUILTIN_LED_PIN); \
+    BTR_BUILTIN_LED_PORT ^= (1 << BTR_BUILTIN_LED_PIN); \
+  } while (0);
 #endif // stm32, avr, ard
 
 // } LED
@@ -108,8 +109,11 @@ namespace btr
 #define BTR_USART4_ENABLED      0
 #endif
 
-#ifndef BTR_USART_TX_Q_DELAY
-#define BTR_USART_TX_Q_DELAY    10
+#ifndef BTR_USART_RX_DELAY_US
+#define BTR_USART_RX_DELAY_US 500 // in microseconds
+#endif
+#ifndef BTR_USART_TX_DELAY_US
+#define BTR_USART_TX_DELAY_US 500 // in microseconds
 #endif
 #ifndef BTR_USART_IO_TIMEOUT
 #define BTR_USART_IO_TIMEOUT    100

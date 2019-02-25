@@ -14,6 +14,7 @@
 #define BTR_USART_PARITY_ERR    0x0400
 #define BTR_USART_OVERRUN_ERR   0x0800
 #define BTR_USART_FRAME_ERR     0x1000
+#define BTR_USART_TIMEDOUT_ERR  0x1100
 
 namespace btr
 {
@@ -38,11 +39,6 @@ public:
       volatile uint8_t* ucsr_b,
       volatile uint8_t* ucsr_c,
       volatile uint8_t* udr);
-
-  /**
-   * Dtor.
-   */
-  ~Usart() = default;
 
 // OPERATIONS
 
@@ -72,14 +68,14 @@ public:
   void close();
 
   /**
-   * ISR handler.
+   * Handle received data.
    */
-  static void onRecv(uint8_t usart_id);
+  void onRecv();
 
   /**
-   * ISR handler.
+   * Process event of the data just sent.
    */
-  static void onSend(uint8_t usart_id);
+  void onSend();
 
   /**
    * Check if there is data in receive queue.
@@ -141,7 +137,7 @@ public:
    * @param bytes - the number of bytes to receive
    * @return upper 8 bits contain error code(s), lower 8 bits contains zeros
    */
-  uint16_t recv(char* buff, uint16_t bytes);
+  uint16_t recv(char* buff, uint16_t bytes, uint32_t timeout = 0);
 
 // ATTRIBUTES
 

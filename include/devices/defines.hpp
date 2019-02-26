@@ -110,10 +110,10 @@ namespace btr
 #endif
 
 #ifndef BTR_USART_RX_DELAY_US
-#define BTR_USART_RX_DELAY_US 500 // in microseconds
+#define BTR_USART_RX_DELAY_US   500 // in microseconds
 #endif
 #ifndef BTR_USART_TX_DELAY_US
-#define BTR_USART_TX_DELAY_US 500 // in microseconds
+#define BTR_USART_TX_DELAY_US   500 // in microseconds
 #endif
 #ifndef BTR_USART_IO_TIMEOUT
 #define BTR_USART_IO_TIMEOUT    100

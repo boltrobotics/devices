@@ -82,7 +82,8 @@
 
 #if BTR_USART1_ENABLED > 0
 #if defined(UBRRH) && defined(UBRRL)
-static btr::Usart usart_1(1, &UBRRH, &UBRRL, &UCSRA, &UCSRB, &UCSRC, &UDR);
+//static btr::Usart usart_1(1, &UBRRH, &UBRRL, &UCSRA, &UCSRB, &UCSRC, &UDR);
+static btr::Usart usart_1(1, &UBRR0H, &UBRR0L, &UCSR0A, &UCSR0B, &UCSR0C, &UDR0);
 #else
 static btr::Usart usart_1(1, &UBRR0H, &UBRR0L, &UCSR0A, &UCSR0B, &UCSR0C, &UDR0);
 #endif // UBRRH && UBRRL
@@ -106,27 +107,15 @@ static btr::Usart usart_4(4, &UBRR3H, &UBRR3L, &UCSR3A, &UCSR3B, &UCSR3C, &UDR3)
 // ISRs {
 // See: http://www.nongnu.org/avr-libc/user-manual/group__avr__interrupts.html
 
-extern "C" {
-
-void onRecv(btr::Usart* dev)
-{
-  dev->onRecv();
-}
-
-void onSend(btr::Usart* dev)
-{
-  dev->onSend();
-}
-
 #if defined (__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
 #if BTR_USART1_ENABLED > 0
 ISR(USART_RX_vect)
 {
-  onRecv(&usart_1);
+  usart_1.onRecv();
 }
 ISR(USART_UDRE_vect)
 {
-  onSend(&usart_1);
+  usart_1.onSend();
 }
 #endif
 
@@ -135,11 +124,11 @@ ISR(USART_UDRE_vect)
 #if BTR_USART1_ENABLED > 0
 ISR(USART0_RX_vect)
 {
-  onRecv(&usart_1);
+  usart_1.onRecv();
 }
 ISR(USART0_UDRE_vect)
 {
-  onSend(&usart_1);
+  usart_1.onSend();
 }
 #endif
 #if BTR_USART2_ENABLED > 0
@@ -172,9 +161,8 @@ ISR(USART3_UDRE_vect)
   usart_4.onSend();
 }
 #endif // BTR_USARTx
-#endif // __AVR_
 
-} // extern "C"
+#endif // __AVR_ATmegaX
 
 // } ISRs
 
@@ -210,6 +198,10 @@ Usart::Usart(
     rx_buff_(),
     tx_buff_()
 {
+  clear_bit(*ucsr_b_, TXEN);
+  clear_bit(*ucsr_b_, RXEN);
+  clear_bit(*ucsr_b_, RXCIE);
+  clear_bit(*ucsr_b_, UDRIE);
 } 
 
 //============================================= OPERATIONS =========================================
@@ -250,51 +242,37 @@ int Usart::open()
     return 0;
   }
 
-  uint32_t baud_rate = 0;
-  uint8_t data_bits = 8;
-  uint8_t stop_bits = 1;
-  char parity = 'N';
+  uint16_t baud;
+  uint8_t config;
 
   switch (id_) {
     case 1:
-      baud_rate = BTR_USART1_BAUD;
-      data_bits = BTR_USART1_DATA_BITS,
-      stop_bits = BTR_USART1_STOP_BITS,
-      parity = BTR_USART1_PARITY;
+      baud = BAUD_CALC(BTR_USART1_BAUD);
+      config = BTR_USART_CONFIG(BTR_USART1_PARITY, BTR_USART1_STOP_BITS, BTR_USART1_DATA_BITS);
       break;
     case 2:
-      baud_rate = BTR_USART2_BAUD;
-      data_bits = BTR_USART2_DATA_BITS,
-      stop_bits = BTR_USART2_STOP_BITS,
-      parity = BTR_USART2_PARITY;
+      baud = BAUD_CALC(BTR_USART2_BAUD);
+      config = BTR_USART_CONFIG(BTR_USART2_PARITY, BTR_USART2_STOP_BITS, BTR_USART2_DATA_BITS);
       break;
     case 3:
-      baud_rate = BTR_USART3_BAUD;
-      data_bits = BTR_USART3_DATA_BITS,
-      stop_bits = BTR_USART3_STOP_BITS,
-      parity = BTR_USART3_PARITY;
+      baud = BAUD_CALC(BTR_USART3_BAUD);
+      config = BTR_USART_CONFIG(BTR_USART3_PARITY, BTR_USART3_STOP_BITS, BTR_USART3_DATA_BITS);
       break;
     case 4:
-      baud_rate = BTR_USART4_BAUD;
-      data_bits = BTR_USART4_DATA_BITS,
-      stop_bits = BTR_USART4_STOP_BITS,
-      parity = BTR_USART4_PARITY;
+      baud = BAUD_CALC(BTR_USART4_BAUD);
+      config = BTR_USART_CONFIG(BTR_USART4_PARITY, BTR_USART4_STOP_BITS, BTR_USART4_DATA_BITS);
       break;
     default:
       return -1;
   }
 
-  uint16_t baud = BAUD_CALC(baud_rate);
-
 #if BTR_USART_USE_2X > 0
   *ucsr_a_ = (1 << U2X);
-#else
-  *ucsr_a_ &= ~(1 << U2X);
 #endif
 
-  *ubrr_h_ = (uint8_t) (baud >> 8);
-  *ubrr_l_ = (uint8_t) (baud & 0xFF);
-  *ucsr_c_ = (uint8_t) BTR_USART_CONFIG(parity, stop_bits, data_bits);
+  *ubrr_h_ = baud >> 8;
+  *ubrr_l_ = baud;
+  *ucsr_c_ = config;
 
   set_bit(*ucsr_b_, TXEN);
   set_bit(*ucsr_b_, RXEN);
@@ -370,13 +348,10 @@ int Usart::send(char ch, bool drain)
 {
   uint16_t head_next = (tx_head_ + 1) % BTR_USART_TX_BUFF_SIZE;
 
+  // Wait while data is being drained from tx_buff_.
   while (head_next == tx_tail_) {
-    if (bit_is_clear(SREG, SREG_I)) {
-      if (bit_is_set(*ucsr_a_, UDRE)) {
-        onSend();
-      }
-    } else {
-      // Wait while data is being drained from tx_buff_.
+    if (bit_is_clear(SREG, SREG_I) && bit_is_set(*ucsr_a_, UDRE)) {
+      onSend();
     }
   }
 

@@ -101,7 +101,7 @@ public:
    * @param drain - block until all output has been transmitted
    * @return 0 on success, -1 if queue was full
    */
-  int send(char ch, bool drain = false);
+  int send(char ch, bool drain = false, uint32_t timeout = BTR_USART_TX_TIMEOUT);
 
   /**
    * Send data from buff up to null character.
@@ -137,7 +137,7 @@ public:
    * @param bytes - the number of bytes to receive
    * @return upper 8 bits contain error code(s), lower 8 bits contains zeros
    */
-  uint16_t recv(char* buff, uint16_t bytes, uint32_t timeout = 0);
+  uint16_t recv(char* buff, uint16_t bytes, uint32_t timeout = BTR_USART_RX_TIMEOUT);
 
 // ATTRIBUTES
 

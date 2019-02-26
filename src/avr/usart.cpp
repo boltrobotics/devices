@@ -5,7 +5,6 @@
 #include <avr/io.h>
 #include <util/atomic.h>
 #include <util/delay.h>
-#include <time.h>
 
 // PROJECT INCLUDES
 #include "devices/avr/usart.hpp"  // class implemented
@@ -344,14 +343,28 @@ int Usart::flush(DirectionType queue_selector)
   return 0;
 }
 
-int Usart::send(char ch, bool drain)
+int Usart::send(char ch, bool drain, uint32_t timeout)
 {
+  uint32_t delays = 0;
   uint16_t head_next = (tx_head_ + 1) % BTR_USART_TX_BUFF_SIZE;
 
-  // Wait while data is being drained from tx_buff_.
+  // No room in tx buffer, wait while data is being drained from tx_buff_.
+  //
   while (head_next == tx_tail_) {
-    if (bit_is_clear(SREG, SREG_I) && bit_is_set(*ucsr_a_, UDRE)) {
-      onSend();
+    if (bit_is_clear(SREG, SREG_I)) {
+      if (bit_is_set(*ucsr_a_, UDRE)) {
+        onSend();
+        continue;
+      }
+    }
+
+    if (timeout > 0) {
+      _delay_ms(BTR_USART_TX_DELAY);
+      delays += BTR_USART_TX_DELAY;
+
+      if (delays >= timeout) {
+        return -1;
+      }
     }
   }
 
@@ -417,19 +430,23 @@ uint16_t Usart::recv()
 
 uint16_t Usart::recv(char* buff, uint16_t bytes, uint32_t timeout)
 {
+  uint32_t delays = 0;
+
   uint16_t rc = 0;
   uint16_t byte_idx = 0;
-  time_t start = time(nullptr);
 
   while (bytes > 0 && (byte_idx + 1) < bytes) {
     uint16_t ch = recv();
 
     if (BTR_USART_NO_DATA & ch) {
-      _delay_us(BTR_USART_RX_DELAY_US);
+      if (timeout > 0) {
+        _delay_ms(BTR_USART_RX_DELAY);
+        delays += BTR_USART_RX_DELAY;
 
-      if (timeout > 0 && (time_t) difftime(time(nullptr), start) > timeout) {
-        rc |= BTR_USART_TIMEDOUT_ERR;
-        return rc;
+        if (delays >= timeout) {
+          rc |= BTR_USART_TIMEDOUT_ERR;
+          return rc;
+        }
       }
       continue;
     }

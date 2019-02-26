@@ -109,14 +109,25 @@ namespace btr
 #define BTR_USART4_ENABLED      0
 #endif
 
-#ifndef BTR_USART_RX_DELAY_US
-#define BTR_USART_RX_DELAY_US   500 // in microseconds
+#ifndef BTR_USART_RX_DELAY
+#define BTR_USART_RX_DELAY      1 // in milliseconds
 #endif
-#ifndef BTR_USART_TX_DELAY_US
-#define BTR_USART_TX_DELAY_US   500 // in microseconds
+#ifndef BTR_USART_TX_DELAY
+#define BTR_USART_TX_DELAY      1 // in milliseconds
 #endif
-#ifndef BTR_USART_IO_TIMEOUT
-#define BTR_USART_IO_TIMEOUT    100
+
+/**
+ * The time in milliseconds after which a receive operation times out.
+ */
+#ifndef BTR_USART_RX_TIMEOUT
+#define BTR_USART_RX_TIMEOUT    100
+#endif
+
+/**
+ * The time in milliseconds after which a send operation times out.
+ */
+#ifndef BTR_USART_TX_TIMEOUT
+#define BTR_USART_TX_TIMEOUT    100
 #endif
 
 #ifndef BTR_USART_RX_BUFF_SIZE

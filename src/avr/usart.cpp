@@ -304,7 +304,7 @@ void Usart::onRecv()
   } else {
     rx_error_ |= (BTR_USART_OVERFLOW_ERR >> 8);
   }
-  LED_TOGGLE();
+  //LED_TOGGLE();
 }
 
 void Usart::onSend()
@@ -319,7 +319,7 @@ void Usart::onSend()
     // Disable transmit buffer empty interrupt since there is no more data to send.
     clear_bit(*ucsr_b_, UDRIE);
   }
-  LED_TOGGLE();
+  //LED_TOGGLE();
 }
 
 int Usart::available()

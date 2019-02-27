@@ -26,7 +26,21 @@ namespace btr
 // } General
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Time {
+
+#if BTR_AVR > 0 || BTR_ARD > 0
+
+#ifndef BTR_TIME_ENABLED 
+#define BTR_TIME_ENABLED      1
+#endif
+
+#endif // Platform
+
+// } Time
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // LED {
+
 #if BTR_STM32 > 0
 
 // The LED in BlackPill use GPIOB, GPIO12, in BluePill GPIOC, GPIO13
@@ -116,18 +130,22 @@ namespace btr
 #define BTR_USART_TX_DELAY      1 // in milliseconds
 #endif
 
+#ifndef BTR_USART_IO_TIMEOUT
+#define BTR_USART_IO_TIMEOUT    100
+#endif
+
 /**
  * The time in milliseconds after which a receive operation times out.
  */
 #ifndef BTR_USART_RX_TIMEOUT
-#define BTR_USART_RX_TIMEOUT    100
+#define BTR_USART_RX_TIMEOUT    BTR_USART_IO_TIMEOUT
 #endif
 
 /**
  * The time in milliseconds after which a send operation times out.
  */
 #ifndef BTR_USART_TX_TIMEOUT
-#define BTR_USART_TX_TIMEOUT    100
+#define BTR_USART_TX_TIMEOUT    BTR_USART_IO_TIMEOUT
 #endif
 
 #ifndef BTR_USART_RX_BUFF_SIZE
@@ -223,33 +241,6 @@ namespace btr
 #ifndef BTR_USART4_CTS
 #define BTR_USART4_CTS          0
 #endif
-
-#define USART_5N1 0x00
-#define USART_6N1 0x02
-#define USART_7N1 0x04
-#define USART_8N1 0x06
-#define USART_5N2 0x08
-#define USART_6N2 0x0A
-#define USART_7N2 0x0C
-#define USART_8N2 0x0E
-
-#define USART_5E1 0x20
-#define USART_6E1 0x22
-#define USART_7E1 0x24
-#define USART_8E1 0x26
-#define USART_5E2 0x28
-#define USART_6E2 0x2A
-#define USART_7E2 0x2C
-#define USART_8E2 0x2E
-
-#define USART_5O1 0x30
-#define USART_6O1 0x32
-#define USART_7O1 0x34
-#define USART_8O1 0x36
-#define USART_5O2 0x38
-#define USART_6O2 0x3A
-#define USART_7O2 0x3C
-#define USART_8O2 0x3E
 
 #define BTR_USART_CONFIG(parity, stop_bits, data_bits) \
   ( (parity == 'N' ? 0 : (parity == 'E' ? 32 : 48)) \

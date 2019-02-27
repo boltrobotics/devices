@@ -40,6 +40,13 @@ public:
    * @return micros() divided by 1000
    */
   static uint32_t millis();
+
+  /**
+   * @param head_time - the time that comes after or equal to tail_time
+   * @param tail_time - the time that comes before or equal to head_time
+   * @return time difference between two values
+   */
+  static uint32_t difftime(uint32_t head_time, uint32_t tail_time);
 };
 
 } // namespace btr

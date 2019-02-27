@@ -98,6 +98,12 @@ uint32_t Time::millis()
   return (micros() / 1000);
 }
 
+// static
+uint32_t Time::difftime(uint32_t head_time, uint32_t tail_time)
+{
+  return ((UINT32_MAX + head_time - tail_time) % UINT32_MAX);
+}
+
 } // namespace btr
 
 #endif // BTR_TIME_ENABLED > 0

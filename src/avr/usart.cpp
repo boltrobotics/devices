@@ -304,7 +304,7 @@ void Usart::onRecv()
   } else {
     rx_error_ |= (BTR_USART_OVERFLOW_ERR >> 8);
   }
-  //LED_TOGGLE();
+  LED_TOGGLE();
 }
 
 void Usart::onSend()
@@ -418,11 +418,10 @@ uint16_t Usart::recv()
 {
   if (rx_head_ != rx_tail_) {
     uint8_t ch = rx_buff_[rx_tail_];  
-    rx_tail_ = (rx_tail_ + 1 ) % BTR_USART_RX_BUFF_SIZE;
+    rx_tail_ = (rx_tail_ + 1) % BTR_USART_RX_BUFF_SIZE;
 
     uint16_t rc = (rx_error_ << 8);
     rx_error_ = 0;
-
     return (rc + ch);
   }
   return BTR_USART_NO_DATA;
@@ -431,11 +430,9 @@ uint16_t Usart::recv()
 uint16_t Usart::recv(char* buff, uint16_t bytes, uint32_t timeout)
 {
   uint32_t delays = 0;
-
   uint16_t rc = 0;
-  uint16_t byte_idx = 0;
 
-  while (bytes > 0 && (byte_idx + 1) < bytes) {
+  while (bytes > 0) {
     uint16_t ch = recv();
 
     if (BTR_USART_NO_DATA & ch) {
@@ -451,10 +448,9 @@ uint16_t Usart::recv(char* buff, uint16_t bytes, uint32_t timeout)
       continue;
     }
     rc |= (ch & 0xFF00);
-    buff[byte_idx++] = ch;
+    *buff++ = ch;
+    --bytes;
   }
-
-  buff[byte_idx] = 0;
   return rc;
 }
 

@@ -295,32 +295,6 @@ void Usart::close()
   rx_head_ = rx_tail_;
 }
 
-void Usart::onRecv()
-{
-  rx_error_ = (*ucsr_a_ & ((1 << FE) | (1 << DOR) | (1 << UPE)));
-  uint16_t head_next = (rx_head_ + 1) % BTR_USART_RX_BUFF_SIZE;
-
-  if (head_next != rx_tail_) {
-    rx_buff_[rx_head_] = *udr_;
-    rx_head_ = head_next;
-  } else {
-    rx_error_ |= (BTR_USART_OVERFLOW_ERR >> 8);
-  }
-  LED_TOGGLE();
-}
-
-void Usart::onSend()
-{
-  uint8_t ch = tx_buff_[tx_tail_];
-  tx_tail_ = (tx_tail_ + 1) % BTR_USART_TX_BUFF_SIZE;
-  *udr_ = ch;
-
-  if (tx_head_ == tx_tail_) {
-    clear_bit(*ucsr_b_, UDRIE);
-  }
-  LED_TOGGLE();
-}
-
 int Usart::available()
 {
   uint16_t bytes = BTR_USART_RX_BUFF_SIZE + rx_head_ - rx_tail_;
@@ -346,115 +320,91 @@ int Usart::flush(DirectionType queue_selector)
   return 0;
 }
 
-int Usart::send(char ch, bool drain, uint32_t timeout)
+void Usart::onRecv()
+{
+  rx_error_ = (*ucsr_a_ & ((1 << FE) | (1 << DOR) | (1 << UPE)));
+  uint16_t head_next = (rx_head_ + 1) % BTR_USART_RX_BUFF_SIZE;
+
+  if (head_next != rx_tail_) {
+    rx_buff_[rx_head_] = *udr_;
+    rx_head_ = head_next;
+  } else {
+    rx_error_ |= (BTR_USART_OVERFLOW_ERR >> 16);
+  }
+  LED_TOGGLE();
+}
+
+void Usart::onSend()
+{
+  uint8_t ch = tx_buff_[tx_tail_];
+  tx_tail_ = (tx_tail_ + 1) % BTR_USART_TX_BUFF_SIZE;
+  *udr_ = ch;
+
+  if (tx_head_ == tx_tail_) {
+    clear_bit(*ucsr_b_, UDRIE);
+  }
+  LED_TOGGLE();
+}
+
+uint32_t Usart::send(const char* buff, uint16_t bytes, uint32_t timeout)
 {
   enable_flush_ = true;
-  uint32_t delays = 0;
-  uint16_t head_next = (tx_head_ + 1) % BTR_USART_TX_BUFF_SIZE;
-
-  // No room in tx buffer, wait while data is being drained from tx_buff_.
-  //
-  while (head_next == tx_tail_) {
-    if (bit_is_clear(SREG, SREG_I)) {
-      if (bit_is_set(*ucsr_a_, UDRE)) {
-        onSend();
-        continue;
-      }
-    }
-
-    if (timeout > 0) {
-      _delay_ms(BTR_USART_TX_DELAY);
-      delays += BTR_USART_TX_DELAY;
-
-      if (delays >= timeout) {
-        return -1;
-      }
-    }
-  }
-
-  tx_buff_[tx_head_] = ch;
-
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-    tx_head_ = head_next;
-    set_bit(*ucsr_b_, UDRIE);
-  }
-
-  if (true == drain) {
-    flush(DirectionType::OUT);
-  }
-  return 0;
-}
-
-int Usart::send(const char* buff, bool drain)
-{
-  int rc = 0;
-
-  while (*buff) {
-    if (0 != (rc = send(*buff++, false))) {
-      break;
-    }
-  }
-
-  if (0 == rc && true == drain) {
-    flush(DirectionType::OUT);
-  }
-  return rc;
-}
-
-int Usart::send(const char* buff, uint32_t bytes, bool drain)
-{
-  int rc = 0;
-
-  while (bytes-- > 0) {
-    if (0 != (rc = send(*buff, false))) {
-      break;
-    }
-    ++buff;
-  }
-
-  if (0 == rc && true == drain) {
-    flush(DirectionType::OUT);
-  }
-  return rc;
-}
-
-uint16_t Usart::recv()
-{
-  if (rx_head_ != rx_tail_) {
-    uint8_t ch = rx_buff_[rx_tail_];  
-    rx_tail_ = (rx_tail_ + 1) % BTR_USART_RX_BUFF_SIZE;
-
-    uint16_t rc = (rx_error_ << 8);
-    rx_error_ = 0;
-    return (rc + ch);
-  }
-  return BTR_USART_NO_DATA;
-}
-
-uint16_t Usart::recv(char* buff, uint16_t bytes, uint32_t timeout)
-{
-  uint32_t delays = 0;
-  uint16_t rc = 0;
+  uint32_t rc = 0;
+  uint32_t delay = 0;
 
   while (bytes > 0) {
-    uint16_t ch = recv();
+    uint16_t head_next = (tx_head_ + 1) % BTR_USART_TX_BUFF_SIZE;
 
-    if (BTR_USART_NO_DATA & ch) {
+    // No room in tx buffer, wait until at least one character is drained from it.
+    while (head_next == tx_tail_) {
       if (timeout > 0) {
-        _delay_ms(BTR_USART_RX_DELAY);
-        delays += BTR_USART_RX_DELAY;
+        _delay_us(BTR_USART_TX_DELAY_US);
+        delay += BTR_USART_TX_DELAY_US;
 
-        if (delays >= timeout) {
+        if (delay >= (timeout * 1000)) {
           rc |= BTR_USART_TIMEDOUT_ERR;
           return rc;
         }
       }
-      continue;
     }
-    rc |= (ch & 0xFF00);
-    *buff++ = ch;
+
+    tx_buff_[tx_head_] = *buff++;
+
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+      tx_head_ = head_next;
+      set_bit(*ucsr_b_, UDRIE);
+    }
+    ++rc;
     --bytes;
   }
+  return rc;
+}
+
+uint32_t Usart::recv(char* buff, uint16_t bytes, uint32_t timeout)
+{
+  uint32_t rc = 0;
+  uint32_t delay = 0;
+
+  while (bytes > 0) {
+    if (rx_head_ != rx_tail_) {
+      *buff++ = rx_buff_[rx_tail_];  
+      rx_tail_ = (rx_tail_ + 1) % BTR_USART_RX_BUFF_SIZE;
+      delay = 0;
+      --bytes;
+      ++rc;
+    } else {
+      if (timeout > 0) {
+        _delay_us(BTR_USART_RX_DELAY_US);
+        delay += BTR_USART_RX_DELAY_US;
+
+        if (delay >= (timeout * 1000)) {
+          rc |= BTR_USART_TIMEDOUT_ERR;
+          break;
+        }
+      }
+    }
+  }
+  rc |= (rx_error_ << 16);
   return rc;
 }
 

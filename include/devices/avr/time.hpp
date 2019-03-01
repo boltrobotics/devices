@@ -32,12 +32,12 @@ public:
   static void shutdown();
 
   /**
-   * @return microseconds counter value
+   * @return seconds since this uS started running
    */
-  static uint32_t micros();
+  static uint32_t sec();
 
   /**
-   * @return micros() divided by 1000
+   * @return milliseconds since this uS started running
    */
   static uint32_t millis();
 
@@ -46,7 +46,7 @@ public:
    * @param tail_time - the time that comes before or equal to head_time
    * @return time difference between two values
    */
-  static uint32_t difftime(uint32_t head_time, uint32_t tail_time);
+  static uint32_t diff(uint32_t head_time, uint32_t tail_time);
 };
 
 } // namespace btr

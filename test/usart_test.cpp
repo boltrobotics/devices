@@ -37,8 +37,8 @@ public:
       wbuff_(),
       rbuff_()
   {
-    reader_.configure(TTY_SIM_0, BAUD, DATA_BITS, ParityType::NONE, BTR_USART_IO_TIMEOUT);
-    sender_.configure(TTY_SIM_1, BAUD, DATA_BITS, ParityType::NONE, BTR_USART_IO_TIMEOUT);
+    reader_.configure(TTY_SIM_0, BAUD, DATA_BITS, ParityType::NONE, BTR_USART_IO_TIMEOUT_MS);
+    sender_.configure(TTY_SIM_1, BAUD, DATA_BITS, ParityType::NONE, BTR_USART_IO_TIMEOUT_MS);
     reader_.open();
     sender_.open();
     resetBuffers();
@@ -120,8 +120,8 @@ TEST_F(UsartTest, readTimeout)
   high_resolution_clock::time_point now = high_resolution_clock::now();
   auto elapsed = duration_cast<milliseconds>(now - start).count();
 
-  ASSERT_LE(BTR_USART_IO_TIMEOUT, elapsed);
-  ASSERT_GT(BTR_USART_IO_TIMEOUT + 20, elapsed);
+  ASSERT_LE(BTR_USART_IO_TIMEOUT_MS, elapsed);
+  ASSERT_GT(BTR_USART_IO_TIMEOUT_MS + 20, elapsed);
 
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
 }

@@ -41,14 +41,14 @@ public:
    *  @see http://man7.org/linux/man-pages/man3/termios.3.html
    * @param data_bits
    * @param parity - @see ParityType
-   * @param timeout - serial operation timeout in milliseconds
+   * @param timeout - serial operation timeout in microseconds
    */
   void configure(
       const char* port_name,
       uint32_t baud_rate,
       uint8_t data_bits,
       uint8_t parity,
-      uint32_t timeout = BTR_USART_IO_TIMEOUT);
+      uint32_t timeout = BTR_USART_IO_TIMEOUT_MS);
 
   /**
    * Check if device is open.
@@ -68,7 +68,7 @@ public:
   void close();
 
   /**
-   * @param timeout - timeout in milliseconds
+   * @param timeout - timeout in microseconds
    * @return 0 on success, -1 on failure
    */
   int setTimeout(uint32_t timeout);
@@ -168,7 +168,7 @@ private:
   uint32_t            baud_rate_;
   uint8_t             data_bits_;
   uint8_t             parity_;
-  size_t              timeout_;
+  time_t              timeout_;
 
 }; // class Usart
 

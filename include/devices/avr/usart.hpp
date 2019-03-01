@@ -9,12 +9,12 @@
 // PROJECT INCLUDES
 #include "devices/defines.hpp"
 
-#define BTR_USART_NO_DATA       0x0100
-#define BTR_USART_OVERFLOW_ERR  0x0200
-#define BTR_USART_PARITY_ERR    0x0400
-#define BTR_USART_OVERRUN_ERR   0x0800
-#define BTR_USART_FRAME_ERR     0x1000
-#define BTR_USART_TIMEDOUT_ERR  0x1100
+#define BTR_USART_NO_DATA       0x010000
+#define BTR_USART_OVERFLOW_ERR  0x020000
+#define BTR_USART_PARITY_ERR    0x040000
+#define BTR_USART_OVERRUN_ERR   0x080000
+#define BTR_USART_FRAME_ERR     0x100000
+#define BTR_USART_TIMEDOUT_ERR  0x110000
 
 namespace btr
 {
@@ -68,16 +68,6 @@ public:
   void close();
 
   /**
-   * Handle received data.
-   */
-  void onRecv();
-
-  /**
-   * Process event of the data just sent.
-   */
-  void onSend();
-
-  /**
    * Check if there is data in receive queue.
    *
    * @return bytes available on the serial port or -1 if failed to retrieve the value
@@ -95,49 +85,36 @@ public:
   int flush(DirectionType queue_selector);
 
   /**
-   * Send a single character.
-   *
-   * @param ch - the character to send
-   * @param drain - block until all output has been transmitted
-   * @return 0 on success, -1 if queue was full
+   * Handle received data.
    */
-  int send(char ch, bool drain = false, uint32_t timeout = BTR_USART_TX_TIMEOUT);
+  void onRecv();
 
   /**
-   * Send data from buff up to null character.
-   *
-   * @param buff - data buffer
-   * @param drain - block until all output has been transmitted
-   * @return 0 on success, -1 if queue was full
+   * Process event of the data just sent.
    */
-  int send(const char* buff, bool drain = false);
+  void onSend();
 
   /**
    * Send a number of bytes from the buffer.
    *
    * @param buff - data buffer
    * @param bytes - number of bytes
-   * @param drain - block until all output has been transmitted
-   * @return 0 on success, -1 if queue was full
+   * @param timeout - maximum microseconds to wait to submit one character
+   * @return bits from 16 up to 24 contain error code(s), lower 16 bits contains the number of bytes
+   *  submitted
    */
-  int send(const char* buff, uint32_t bytes, bool drain = false);
-
-  /**
-   * Receive a single character.
-   *
-   * @return upper 8 bits contain error code, lower 8 bits may contain a value. Result codes
-   *  are defined at the top of this file.
-   */
-  uint16_t recv();
+  uint32_t send(const char* buff, uint16_t bytes, uint32_t timeout = BTR_USART_TX_TIMEOUT_MS);
 
   /**
    * Receive a number of bytes and store in the buffer.
    *
    * @param buff - buffer to store received data
    * @param bytes - the number of bytes to receive
-   * @return upper 8 bits contain error code(s), lower 8 bits contains zeros
+   * @param timeout - maximum microseconds to wait to receive one character
+   * @return bits from 16 up to 24 contain error code(s), lower 16 bits contains the number of bytes
+   *  received
    */
-  uint16_t recv(char* buff, uint16_t bytes, uint32_t timeout = BTR_USART_RX_TIMEOUT);
+  uint32_t recv(char* buff, uint16_t bytes, uint32_t timeout = BTR_USART_RX_TIMEOUT_MS);
 
 // ATTRIBUTES
 

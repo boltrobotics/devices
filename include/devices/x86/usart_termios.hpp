@@ -42,7 +42,7 @@ public:
    *  @see http://man7.org/linux/man-pages/man3/termios.3.html
    * @param data_bits
    * @param parity - @see ParityType
-   * @param timeout - serial operation timeout in milliseconds
+   * @param timeout - serial operation timeout
    * @return 0 on success, -1 on failure
    */
   void configure(
@@ -50,7 +50,7 @@ public:
       uint32_t baud_rate,
       uint8_t data_bits,
       uint8_t parity,
-      uint32_t timeout = BTR_USART_IO_TIMEOUT);
+      uint32_t timeout = BTR_USART_IO_TIMEOUT_MS);
 
   /**
    * Check if port is open.

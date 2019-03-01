@@ -27,7 +27,7 @@ Usart::Usart()
   baud_rate_(BTR_USART1_BAUD),
   data_bits_(BTR_USART1_DATA_BITS),
   parity_(ParityType::NONE),
-  timeout_(BTR_USART_IO_TIMEOUT)
+  timeout_(BTR_USART_IO_TIMEOUT_MS)
 {
 }
 

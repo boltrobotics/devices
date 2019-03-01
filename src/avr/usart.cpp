@@ -404,7 +404,8 @@ uint32_t Usart::recv(char* buff, uint16_t bytes, uint32_t timeout)
       }
     }
   }
-  rc |= (rx_error_ << 16);
+  rc |= (uint32_t(rx_error_) << 16);
+  rx_error_ = 0;
   return rc;
 }
 

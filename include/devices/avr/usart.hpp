@@ -166,6 +166,7 @@ public:
 #endif
   uint8_t rx_buff_[BTR_USART_RX_BUFF_SIZE];
   uint8_t tx_buff_[BTR_USART_TX_BUFF_SIZE];
+  bool enable_flush_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

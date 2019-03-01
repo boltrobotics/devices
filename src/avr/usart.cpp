@@ -195,8 +195,12 @@ Usart::Usart(
     tx_head_(0),
     tx_tail_(0),
     rx_buff_(),
-    tx_buff_()
+    tx_buff_(),
+    enable_flush_(false)
 {
+  // Taint data.
+  rx_buff_[0] = 'U'; // hex 55
+  tx_buff_[0] = 'f'; // hex 66
   clear_bit(*ucsr_b_, TXEN);
   clear_bit(*ucsr_b_, RXEN);
   clear_bit(*ucsr_b_, RXCIE);
@@ -293,8 +297,6 @@ void Usart::close()
 
 void Usart::onRecv()
 {
-  // Can be called from ISR.
-
   rx_error_ = (*ucsr_a_ & ((1 << FE) | (1 << DOR) | (1 << UPE)));
   uint16_t head_next = (rx_head_ + 1) % BTR_USART_RX_BUFF_SIZE;
 
@@ -309,17 +311,14 @@ void Usart::onRecv()
 
 void Usart::onSend()
 {
-  // Can be called from ISR.
-
   uint8_t ch = tx_buff_[tx_tail_];
   tx_tail_ = (tx_tail_ + 1) % BTR_USART_TX_BUFF_SIZE;
   *udr_ = ch;
 
   if (tx_head_ == tx_tail_) {
-    // Disable transmit buffer empty interrupt since there is no more data to send.
     clear_bit(*ucsr_b_, UDRIE);
   }
-  //LED_TOGGLE();
+  LED_TOGGLE();
 }
 
 int Usart::available()
@@ -330,6 +329,10 @@ int Usart::available()
 
 int Usart::flush(DirectionType queue_selector)
 {
+  if (false == enable_flush_) {
+    return 0;
+  }
+
   (void) queue_selector;
 
   while (bit_is_set(*ucsr_b_, UDRIE) || bit_is_clear(*ucsr_a_, TXC)) {
@@ -345,6 +348,7 @@ int Usart::flush(DirectionType queue_selector)
 
 int Usart::send(char ch, bool drain, uint32_t timeout)
 {
+  enable_flush_ = true;
   uint32_t delays = 0;
   uint16_t head_next = (tx_head_ + 1) % BTR_USART_TX_BUFF_SIZE;
 
@@ -368,7 +372,7 @@ int Usart::send(char ch, bool drain, uint32_t timeout)
     }
   }
 
-  tx_buff_[head_next] = ch;
+  tx_buff_[tx_head_] = ch;
 
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
     tx_head_ = head_next;

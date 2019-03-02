@@ -130,6 +130,8 @@ namespace btr
 #ifndef BTR_USART_TX_DELAY_US
 #define BTR_USART_TX_DELAY_US   1000
 #endif
+#define BTR_USART_TX_DELAY_MS   (BTR_USART_TX_DELAY_US / 1000) 
+
 #ifndef BTR_USART_IO_TIMEOUT_MS
 #define BTR_USART_IO_TIMEOUT_MS 100
 #endif

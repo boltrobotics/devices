@@ -338,7 +338,7 @@ int Usart::flush(DirectionType queue_selector)
 int Usart::send(char ch, bool drain)
 {
   if (false == drain) {
-    return (pdPASS == xQueueSend(tx_q_, &ch, pdMS_TO_TICKS(BTR_USART_TX_DELAY)) ? 0 : -1);
+    return (pdPASS == xQueueSend(tx_q_, &ch, pdMS_TO_TICKS(BTR_USART_TX_DELAY_MS)) ? 0 : -1);
   } else {
     while (uxQueueMessagesWaiting(txq()) > 0) {
       yield();

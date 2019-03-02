@@ -61,7 +61,7 @@ namespace btr
 #elif BTR_AVR > 0 || BTR_ARD > 0
 
 // LED pins apply only to Arduino boards. An AVR board is assumed to have the same set-up.
-#if defined(__AVR_ATmega168P__) || defined(__AVR_ATmega328P_)
+#if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P_)
 #define BTR_BUILTIN_LED_PORT  PORTB
 #define BTR_BUILTIN_LED_PIN   PB5
 #define BTR_BUILTIN_LED_DDR   DDRB
@@ -100,7 +100,7 @@ namespace btr
 
 #elif BTR_AVR > 0 || BTR_ARD > 0
 
-#if defined(__AVR_ATmega168P__) || defined(__AVR_ATmega328P_)
+#if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P_)
 #define BTR_USART_MIN_ID        1
 #define BTR_USART_MAX_ID        1
 #elif defined(__AVR__ATmega1280__) || defined(__AVR_ATmega2560__)

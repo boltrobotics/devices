@@ -12,6 +12,14 @@
 #if BTR_USART1_ENABLED > 0 || BTR_USART2_ENABLED > 0 || \
     BTR_USART3_ENABLED > 0 || BTR_USART4_ENABLED > 0
 
+#if BTR_USART2_ENABLED > 0 || BTR_USART3_ENABLED > 0 || BTR_USART3_ENABLED > 0
+
+#if !defined(__AVR_ATmega1280__) && !defined(__AVR_ATmega2560__)
+#error USART ports 2-4 are supported for atmega1280 and atmega2560
+#endif // defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+
+#endif
+
 #if BTR_USART_USE_2X > 0
 #define BAUD_CALC(BAUD) (((F_CPU) + 4UL * (BAUD)) /  (8UL * (BAUD)) - 1UL)
 #else

@@ -37,7 +37,7 @@ public:
   /**
    * Configure USART parameters.
    *
-   * @param port - serial IO port name (e.g., /dev/ttyS0)
+   * @param port_name - serial IO port name (e.g., /dev/ttyS0)
    * @param baud_rate - baud rate. It must be one of values specified by in termios.h
    *  @see http://man7.org/linux/man-pages/man3/termios.3.html
    * @param data_bits

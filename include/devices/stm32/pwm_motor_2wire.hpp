@@ -32,6 +32,17 @@ public:
   /**
    * Ctor.
    *
+   * @param motor_type
+   * @param rcc_timer_clk
+   * @param timer
+   * @param timer_ocid_fw
+   * @param timer_ocid_bw
+   * @param rcc_pwm_clk_fw
+   * @param pwm_port_fw
+   * @param pwm_pin_fw
+   * @param rcc_pwm_clk_bw
+   * @param pwm_port_bw
+   * @param pwm_pin_bw
    * @param max_duty - in ticks between 0 - GEAR_PWM_PERIOD/SERVO_PWM_PERIOD
    */
   PwmMotor2Wire(

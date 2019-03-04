@@ -47,9 +47,9 @@ public:
   /**
    * Set/get timeout.
    *
-   * @param timeout - the timeout in microseconds
+   * @param timeout - timeout in milliseconds
    */
-  static uint32_t timeout(uint32_t* new_value = nullptr);
+  static uint32_t timeout(uint32_t* timeout = nullptr);
 
   /**
    * Activate or deactivate internal pull-up resistors.
@@ -125,9 +125,10 @@ public:
   /**
    * Read multi-byte value from a specific register.
    *
-   * @param addr - the address of a device to send the data to
-   * @param reg - the register to read from
-   * @param buff - the buffer to store the data to
+   * @param addr - address of a device to send the data to
+   * @param reg - register to read from
+   * @param buff - buffer to store the data in
+   * @param count - number of bytes to read
    * @return one of STATUS_CODE or system value between 0x8 and 0xFF
    */
   static uint8_t read(uint8_t addr, uint8_t reg, uint8_t* buff, uint8_t count);

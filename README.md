@@ -4,7 +4,7 @@ The project contains device drivers for use on AVR / STM32 / x86 platforms.
 
 # Build
 
-Set up <a href="https://github.com/boltrobotics/cmake-helpers" target="_blank">cmake build<a> by
+Set up <a href="https://github.com/boltrobotics/cmake-helpers" target="_blank">cmake build</a> by
 following an <a href="https://github.com/boltrobotics/cmake-helpers#Example">example</a>.
 
 # Table of Contents

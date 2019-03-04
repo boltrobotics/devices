@@ -36,7 +36,7 @@ public:
     /**
      * Calculate range in millimeters.
      *
-     * @param advc_sample - the analog sample from ADC
+     * @param adc_sample - the analog sample from ADC
      * @param vcc - supplied voltage to ADC. Default 5 volts
      * @return the rnage millimeters
      */

@@ -331,15 +331,10 @@ int Usart::available()
 int Usart::flush(DirectionType queue_selector)
 {
   (void) queue_selector;
-  // TODO implement flush
-  return 0;
-}
 
-int Usart::send(char ch, bool drain)
-{
-  if (false == drain) {
-    return (pdPASS == xQueueSend(tx_q_, &ch, pdMS_TO_TICKS(BTR_USART_TX_DELAY_MS)) ? 0 : -1);
-  } else {
+#if 0
+  // TODO implement flush
+  if (true == drain) {
     while (uxQueueMessagesWaiting(txq()) > 0) {
       yield();
     }
@@ -347,27 +342,34 @@ int Usart::send(char ch, bool drain)
     usart_send_blocking(info->pin, ch);
     return 0;
   }
+#endif
+  return 0;
 }
 
-int Usart::send(const char* buff, bool drain)
+int Usart::send(char ch)
+{
+  return (pdPASS == xQueueSend(tx_q_, &ch, pdMS_TO_TICKS(BTR_USART_TX_DELAY_MS)) ? 0 : -1);
+}
+
+int Usart::send(const char* buff)
 {
   int rc = 0;
 
   while (*buff) {
-    if (0 != (rc = send(*buff++, drain))) {
+    if (0 != (rc = send(*buff++))) {
       break;
     }
   }
   return rc;
 }
 
-int Usart::send(const char* buff, uint32_t bytes, bool drain)
+int Usart::send(const char* buff, uint32_t bytes)
 {
   (void) drain;
   int rc = 0;
 
   while (bytes-- > 0) {
-    if (0 != (rc = send(*buff, drain))) {
+    if (0 != (rc = send(*buff))) {
       break;
     }
     ++buff;

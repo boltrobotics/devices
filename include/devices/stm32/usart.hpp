@@ -88,29 +88,26 @@ public:
    * Send a single character.
    *
    * @param ch - the character to send
-   * @param drain - block until all output has been transmitted
    * @return 0 on success, -1 if queue was full
    */
-  int send(char ch, bool drain = false);
+  int send(char ch);
 
   /**
    * Send data from buff up to null character.
    *
    * @param buff - data buffer
-   * @param drain - block until all output has been transmitted
    * @return 0 on success, -1 if queue was full
    */
-  int send(const char* buff, bool drain = false);
+  int send(const char* buff);
 
   /**
    * Send a number of bytes from the buffer.
    *
    * @param buff - data buffer
    * @param bytes - number of bytes
-   * @param drain - block until all output has been transmitted
    * @return 0 on success, -1 if queue was full
    */
-  int send(const char* buff, uint32_t bytes, bool drain = false);
+  int send(const char* buff, uint32_t bytes);
 
   /**
    * Receive a single character.

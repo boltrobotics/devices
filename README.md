@@ -1,14 +1,10 @@
-# Introduction
+# Overview
 
 The project contains device drivers for use on AVR / STM32 / x86 platforms.
 
-# Build
-
-Set up <a href="https://github.com/boltrobotics/cmake-helpers" target="_blank">cmake build</a> by
-following an <a href="https://github.com/boltrobotics/cmake-helpers#Example">example</a>.
-
 # Table of Contents
 
+* [Build](#Build)
 * [x86](#x86)
   * [PseudoTTY](#PseudoTTY)
   * [Usart](#Usart)
@@ -24,6 +20,11 @@ following an <a href="https://github.com/boltrobotics/cmake-helpers#Example">exa
   * [MaxSonarLvEz](#MaxSonarLvEx)
   * [WheelEncoder](#WheelEncoder)
 * [Contribute](#Contribute)
+
+## <a name="Build">Build</a>
+
+Set up <a href="https://github.com/boltrobotics/cmake-helpers" target="_blank">cmake build</a> by
+following an <a href="https://github.com/boltrobotics/cmake-helpers#Example">example</a>.
 
 ## <a name="x86">x86</a>
 

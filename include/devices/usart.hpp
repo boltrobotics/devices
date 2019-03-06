@@ -22,13 +22,6 @@ namespace bio = boost::asio;
 // PROJECT INCLUDES
 #include "devices/defines.hpp"
 
-#define BTR_USART_NO_DATA       0x010000
-#define BTR_USART_OVERFLOW_ERR  0x020000
-#define BTR_USART_PARITY_ERR    0x040000
-#define BTR_USART_OVERRUN_ERR   0x080000
-#define BTR_USART_FRAME_ERR     0x100000
-#define BTR_USART_TIMEDOUT_ERR  0x110000
-
 namespace btr
 {
 

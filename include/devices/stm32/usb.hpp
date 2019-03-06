@@ -80,7 +80,7 @@ public:
    * @return bits from 16 up to 24 contain error code(s), lower 16 bits contains the number of bytes
    *  submitted
    */
-  static uint32_t send(const char* buff, uint16_t bytes, uint32_t timeout);
+  static uint32_t send(const char* buff, uint16_t bytes, uint32_t timeout = BTR_USART_TX_TIMEOUT_MS);
 
   /**
    * Receive a number of bytes and store in the buffer.

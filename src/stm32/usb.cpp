@@ -19,6 +19,7 @@
 extern "C" {
 
 static volatile bool ready_ = false;
+static volatile uint8_t rx_error_;
 static QueueHandle_t tx_q_;
 static QueueHandle_t rx_q_;
 static uint8_t ctrl_buff_[BTR_USART_CR_BUFF_SIZE];
@@ -318,10 +319,6 @@ int Usb::open()
 {
   if (false == ready_) {
     initUsb();
-
-    //while (false == ready_) {
-    //  taskYIELD();
-    //}
   }
   return 0;
 }
@@ -362,30 +359,16 @@ uint32_t Usb::send(const char* buff, uint16_t bytes, uint32_t timeout)
 uint32_t Usb::recv(char* buff, uint16_t bytes, uint32_t timeout)
 {
   uint32_t rc = 0;
-  uint32_t delay = 0;
 
   while (bytes > 0) {
-    if (rx_head_ != rx_tail_) {
-      *buff++ = rx_buff_[rx_tail_];  
-      rx_tail_ = (rx_tail_ + 1 ) % BTR_USART_RX_BUFF_SIZE;
-      delay = 0;
+    if (pdPASS == xQueueReceive(rx_q_, buff, pdMS_TO_TICKS(timeout))) {
+      ++buff;
       --bytes;
       ++rc;
     } else {
-#if 0      
-      if (timeout > 0) {
-        vTaskDelay(pdMS_TO_TICKS(BTR_USART_RX_DELAY_MS));
-        delay += BTR_USART_RX_DELAY_US;
-
-        if (delay >= timeout) {
-          rc |= BTR_USART_TIMEDOUT_ERR;
-          break;
-        }
-      }
-#else
-      (void) delay; (void) timeout; // FIXME
-      taskYIELD();
-#endif
+      // return can be errQUEUE_EMPTY as per PDF manual (not online)
+      rc |= BTR_USART_TIMEDOUT_ERR;
+      break;
     }
   }
 

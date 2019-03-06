@@ -302,7 +302,7 @@ uint32_t Usart::recv(char* buff, uint16_t bytes, uint32_t timeout)
 #if 0      
       if (timeout > 0) {
         vTaskDelay(pdMS_TO_TICKS(BTR_USART_RX_DELAY_MS));
-        delay += BTR_USART_RX_DELAY_US;
+        delay += BTR_USART_RX_DELAY_MS;
 
         if (delay >= timeout) {
           rc |= BTR_USART_TIMEDOUT_ERR;

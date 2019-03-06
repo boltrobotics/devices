@@ -105,7 +105,7 @@ typedef enum
   EVEN
 } ParityType;
 
-#define TO_PARITY(v) ((v==1 ? ParityType::ODD : (v==2 ? ParityType::EVEN : ParityType::NONE)))
+#define PARITY_FROM_INT(v) ((v==1 ? ParityType::ODD : (v==2 ? ParityType::EVEN : ParityType::NONE)))
 
 /** Supported stop bit types. */
 typedef enum
@@ -125,6 +125,13 @@ typedef enum
   INOUT
 } DirectionType;
 
+#define BTR_USART_NO_DATA       0x010000
+#define BTR_USART_OVERFLOW_ERR  0x020000
+#define BTR_USART_PARITY_ERR    0x040000
+#define BTR_USART_OVERRUN_ERR   0x080000
+#define BTR_USART_FRAME_ERR     0x100000
+#define BTR_USART_TIMEDOUT_ERR  0x110000
+
 #if BTR_STM32 > 0
 
 #define BTR_USART_MIN_ID        0
@@ -141,6 +148,10 @@ typedef enum
 #endif // AVR board
 
 #endif // Platform
+
+#ifndef BTR_USB0_ENABLED
+#define BTR_USB0_ENABLED      0
+#endif
 
 #ifndef BTR_USART0_ENABLED
 #define BTR_USART0_ENABLED      0

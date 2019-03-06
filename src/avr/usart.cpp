@@ -15,7 +15,7 @@
 #if BTR_USART1_ENABLED > 0 || BTR_USART2_ENABLED > 0 || BTR_USART2_ENABLED > 0
 
 #if !defined(__AVR_ATmega1280__) && !defined(__AVR_ATmega2560__)
-#error USART ports 2-4 are supported for atmega1280 and atmega2560
+#error USART ports 1-3 are supported by atmega1280 and atmega2560 only
 #endif // defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
 
 #endif
@@ -355,7 +355,7 @@ uint32_t Usart::send(const char* buff, uint16_t bytes, uint32_t timeout)
         _delay_us(BTR_USART_TX_DELAY_US);
         delay += BTR_USART_TX_DELAY_US;
 
-        if (delay >= (timeout * 1000)) {
+        if ((delay / 1000) >= timeout) {
           rc |= BTR_USART_TIMEDOUT_ERR;
           return rc;
         }
@@ -391,7 +391,7 @@ uint32_t Usart::recv(char* buff, uint16_t bytes, uint32_t timeout)
         _delay_us(BTR_USART_RX_DELAY_US);
         delay += BTR_USART_RX_DELAY_US;
 
-        if ((delay * 1000) >= timeout) {
+        if ((delay / 1000) >= timeout) {
           rc |= BTR_USART_TIMEDOUT_ERR;
           break;
         }

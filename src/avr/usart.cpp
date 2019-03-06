@@ -7,12 +7,12 @@
 #include <util/delay.h>
 
 // PROJECT INCLUDES
-#include "devices/avr/usart.hpp"  // class implemented
+#include "devices/usart.hpp"  // class implemented
 
-#if BTR_USART1_ENABLED > 0 || BTR_USART2_ENABLED > 0 || \
-    BTR_USART3_ENABLED > 0 || BTR_USART4_ENABLED > 0
+#if BTR_USART0_ENABLED > 0 || BTR_USART1_ENABLED > 0 || \
+    BTR_USART2_ENABLED > 0 || BTR_USART3_ENABLED > 0
 
-#if BTR_USART2_ENABLED > 0 || BTR_USART3_ENABLED > 0 || BTR_USART3_ENABLED > 0
+#if BTR_USART1_ENABLED > 0 || BTR_USART2_ENABLED > 0 || BTR_USART2_ENABLED > 0
 
 #if !defined(__AVR_ATmega1280__) && !defined(__AVR_ATmega2560__)
 #error USART ports 2-4 are supported for atmega1280 and atmega2560
@@ -87,26 +87,48 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Static members {
 
-#if BTR_USART1_ENABLED > 0
+#if BTR_USART0_ENABLED > 0
 #if defined(UBRRH) && defined(UBRRL)
-//static btr::Usart usart_1(1, &UBRRH, &UBRRL, &UCSRA, &UCSRB, &UCSRC, &UDR);
-static btr::Usart usart_1(1, &UBRR0H, &UBRR0L, &UCSR0A, &UCSR0B, &UCSR0C, &UDR0);
+static btr::Usart usart_0(&UBRRH, &UBRRL, &UCSRA, &UCSRB, &UCSRC, &UDR);
 #else
-static btr::Usart usart_1(1, &UBRR0H, &UBRR0L, &UCSR0A, &UCSR0B, &UCSR0C, &UDR0);
+static btr::Usart usart_0(&UBRR0H, &UBRR0L, &UCSR0A, &UCSR0B, &UCSR0C, &UDR0);
 #endif // UBRRH && UBRRL
-#endif // BTR_USART1_ENABLED
-
+#endif
+#if BTR_USART1_ENABLED > 0
+static btr::Usart usart_1(&UBRR1H, &UBRR1L, &UCSR1A, &UCSR1B, &UCSR1C, &UDR1);
+#endif
 #if BTR_USART2_ENABLED > 0
-static btr::Usart usart_2(2, &UBRR1H, &UBRR1L, &UCSR1A, &UCSR1B, &UCSR1C, &UDR1);
+static btr::Usart usart_2(&UBRR2H, &UBRR2L, &UCSR2A, &UCSR2B, &UCSR2C, &UDR2);
 #endif
-
 #if BTR_USART3_ENABLED > 0
-static btr::Usart usart_3(3, &UBRR2H, &UBRR2L, &UCSR2A, &UCSR2B, &UCSR2C, &UDR2);
+static btr::Usart usart_3(&UBRR3H, &UBRR3L, &UCSR3A, &UCSR3B, &UCSR3C, &UDR3);
 #endif
 
-#if BTR_USART4_ENABLED > 0
-static btr::Usart usart_4(4, &UBRR3H, &UBRR3L, &UCSR3A, &UCSR3B, &UCSR3C, &UDR3);
-#endif
+static void onRecv(btr::Usart* u)
+{
+  u->rx_error_ = (*(u->ucsr_a_) & ((1 << FE) | (1 << DOR) | (1 << UPE)));
+  uint16_t head_next = (u->rx_head_ + 1) % BTR_USART_RX_BUFF_SIZE;
+
+  if (head_next != u->rx_tail_) {
+    u->rx_buff_[u->rx_head_] = *(u->udr_);
+    u->rx_head_ = head_next;
+  } else {
+    u->rx_error_ |= (BTR_USART_OVERFLOW_ERR >> 16);
+  }
+  LED_TOGGLE();
+}
+
+static void onSend(btr::Usart* u)
+{
+  uint8_t ch = u->tx_buff_[u->tx_tail_];
+  u->tx_tail_ = (u->tx_tail_ + 1) % BTR_USART_TX_BUFF_SIZE;
+  *(u->udr_) = ch;
+
+  if (u->tx_head_ == u->tx_tail_) {
+    clear_bit(*(u->ucsr_b_), UDRIE);
+  }
+  LED_TOGGLE();
+}
 
 // } Static members
 
@@ -115,57 +137,58 @@ static btr::Usart usart_4(4, &UBRR3H, &UBRR3L, &UCSR3A, &UCSR3B, &UCSR3C, &UDR3)
 // See: http://www.nongnu.org/avr-libc/user-manual/group__avr__interrupts.html
 
 #if defined (__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
-#if BTR_USART1_ENABLED > 0
+#if BTR_USART0_ENABLED > 0
 ISR(USART_RX_vect)
 {
-  usart_1.onRecv();
+  onRecv(&usart_0);
 }
 ISR(USART_UDRE_vect)
 {
-  usart_1.onSend();
+  onSend(&usart_0);
 }
 #endif
 
 #elif defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
 
-#if BTR_USART1_ENABLED > 0
+#if BTR_USART0_ENABLED > 0
 ISR(USART0_RX_vect)
 {
-  usart_1.onRecv();
+  onRecv(&usart_0);
 }
 ISR(USART0_UDRE_vect)
 {
-  usart_1.onSend();
+  onSend(&usart_0);
 }
 #endif
-#if BTR_USART2_ENABLED > 0
+#if BTR_USART1_ENABLED > 0
 ISR(USART1_RX_vect)
 {
-  usart_2.onRecv();
+  onRecv(&usart_1);
 }
 ISR(USART1_UDRE_vect)
 {
-  usart_2.onSend();
+  onSend(&usart_1);
 }
 #endif
-#if BTR_USART3_ENABLED > 0
+#if BTR_USART2_ENABLED > 0
 ISR(USART2_RX_vect)
 {
-  usart_3.onRecv();
+  onRecv(&usart_2);
 }
 ISR(USART2_UDRE_vect)
 {
-  usart_3.onSend();
+  onSend(&usart_2);
 }
 #endif
-#if BTR_USART4_ENABLED > 0
+#if BTR_USART3_ENABLED > 0
 ISR(USART3_RX_vect)
 {
-  usart_4.onRecv();
+  onRecv(&usart_3);
+}
 }
 ISR(USART3_UDRE_vect)
 {
-  usart_4.onSend();
+  onSend(&usart_3);
 }
 #endif // BTR_USARTx
 
@@ -181,16 +204,13 @@ namespace btr
 //============================================= LIFECYCLE ==========================================
 
 Usart::Usart(
-    uint8_t id,
     volatile uint8_t* ubrr_h,
     volatile uint8_t* ubrr_l,
     volatile uint8_t* ucsr_a,
     volatile uint8_t* ucsr_b,
     volatile uint8_t* ucsr_c,
-    volatile uint8_t* udr
-    )
+    volatile uint8_t* udr)
   :
-    id_(id),
     ubrr_h_(ubrr_h),
     ubrr_l_(ubrr_l),
     ucsr_a_(ucsr_a),
@@ -198,13 +218,13 @@ Usart::Usart(
     ucsr_c_(ucsr_c),
     udr_(udr),
     rx_error_(0),
+    enable_flush_(false),
     rx_head_(0),
     rx_tail_(0),
+    rx_buff_(),
     tx_head_(0),
     tx_tail_(0),
-    rx_buff_(),
-    tx_buff_(),
-    enable_flush_(false)
+    tx_buff_()
 {
   // Taint data.
   rx_buff_[0] = 'U'; // hex 55
@@ -213,29 +233,41 @@ Usart::Usart(
   clear_bit(*ucsr_b_, RXEN);
   clear_bit(*ucsr_b_, RXCIE);
   clear_bit(*ucsr_b_, UDRIE);
-} 
+}
 
 //============================================= OPERATIONS =========================================
 
 // static
-Usart* Usart::instance(uint32_t usart_id)
+Usart* Usart::instance(uint32_t id, bool open)
 {
-  switch (usart_id) {
+  switch (id) {
+#if BTR_USART0_ENABLED > 0
+    case 0:
+      if (open) {
+        usart_0.open(BTR_USART0_BAUD, BTR_USART0_DATA_BITS, BTR_USART0_STOP_BITS, BTR_USART0_PARITY);
+      }
+      return &usart_0;
+#endif
 #if BTR_USART1_ENABLED > 0
     case 1:
+      if (open) {
+        usart_1.open(BTR_USART1_BAUD, BTR_USART1_DATA_BITS, BTR_USART1_STOP_BITS, BTR_USART1_PARITY);
+      }
       return &usart_1;
 #endif
 #if BTR_USART2_ENABLED > 0
     case 2:
+      if (open) {
+        usart_2.open(BTR_USART2_BAUD, BTR_USART2_DATA_BITS, BTR_USART2_STOP_BITS, BTR_USART2_PARITY);
+      }
       return &usart_2;
 #endif
 #if BTR_USART3_ENABLED > 0
     case 3:
+      if (open) {
+        usart_3.open(BTR_USART3_BAUD, BTR_USART3_DATA_BITS, BTR_USART3_STOP_BITS, BTR_USART3_PARITY);
+      }
       return &usart_3;
-#endif
-#if BTR_USART4_ENABLED > 0
-    case 4:
-      return &usart_4;
 #endif
     default:
       return nullptr;
@@ -247,43 +279,23 @@ bool Usart::isOpen()
   return (bit_is_set(*ucsr_b_, TXEN) || bit_is_set(*ucsr_b_, RXEN));
 }
 
-int Usart::open()
+int Usart::open(
+    uint32_t baud, uint8_t data_bits, StopBitsType stop_bits, ParityType parity, const char* port)
 {
+  (void) port; // not used on AVR
+
   if (true == isOpen()) {
     return 0;
   }
 
-  uint16_t baud;
-  uint8_t config;
-
-  switch (id_) {
-    case 1:
-      baud = BAUD_CALC(BTR_USART1_BAUD);
-      config = BTR_USART_CONFIG(BTR_USART1_PARITY, BTR_USART1_STOP_BITS, BTR_USART1_DATA_BITS);
-      break;
-    case 2:
-      baud = BAUD_CALC(BTR_USART2_BAUD);
-      config = BTR_USART_CONFIG(BTR_USART2_PARITY, BTR_USART2_STOP_BITS, BTR_USART2_DATA_BITS);
-      break;
-    case 3:
-      baud = BAUD_CALC(BTR_USART3_BAUD);
-      config = BTR_USART_CONFIG(BTR_USART3_PARITY, BTR_USART3_STOP_BITS, BTR_USART3_DATA_BITS);
-      break;
-    case 4:
-      baud = BAUD_CALC(BTR_USART4_BAUD);
-      config = BTR_USART_CONFIG(BTR_USART4_PARITY, BTR_USART4_STOP_BITS, BTR_USART4_DATA_BITS);
-      break;
-    default:
-      return -1;
-  }
+  uint16_t baud_rate = BAUD_CALC(baud);
+  *ubrr_h_ = baud_rate >> 8;
+  *ubrr_l_ = baud_rate;
+  *ucsr_c_ = BTR_USART_CONFIG(parity, stop_bits, data_bits);
 
 #if BTR_USART_USE_2X > 0
   *ucsr_a_ = (1 << U2X);
 #endif
-
-  *ubrr_h_ = baud >> 8;
-  *ubrr_l_ = baud;
-  *ucsr_c_ = config;
 
   set_bit(*ucsr_b_, TXEN);
   set_bit(*ucsr_b_, RXEN);
@@ -321,37 +333,11 @@ int Usart::flush(DirectionType queue_selector)
     if (bit_is_clear(SREG, SREG_I) && bit_is_set(*ucsr_b_, UDRIE)) {
       if (bit_is_set(*ucsr_a_, UDRE)) {
         // Call manually since global interrupts are disabled.
-        onSend();
+        onSend(this);
       }
     }
   }
   return 0;
-}
-
-void Usart::onRecv()
-{
-  rx_error_ = (*ucsr_a_ & ((1 << FE) | (1 << DOR) | (1 << UPE)));
-  uint16_t head_next = (rx_head_ + 1) % BTR_USART_RX_BUFF_SIZE;
-
-  if (head_next != rx_tail_) {
-    rx_buff_[rx_head_] = *udr_;
-    rx_head_ = head_next;
-  } else {
-    rx_error_ |= (BTR_USART_OVERFLOW_ERR >> 16);
-  }
-  LED_TOGGLE();
-}
-
-void Usart::onSend()
-{
-  uint8_t ch = tx_buff_[tx_tail_];
-  tx_tail_ = (tx_tail_ + 1) % BTR_USART_TX_BUFF_SIZE;
-  *udr_ = ch;
-
-  if (tx_head_ == tx_tail_) {
-    clear_bit(*ucsr_b_, UDRIE);
-  }
-  LED_TOGGLE();
 }
 
 uint32_t Usart::send(const char* buff, uint16_t bytes, uint32_t timeout)
@@ -405,7 +391,7 @@ uint32_t Usart::recv(char* buff, uint16_t bytes, uint32_t timeout)
         _delay_us(BTR_USART_RX_DELAY_US);
         delay += BTR_USART_RX_DELAY_US;
 
-        if (delay >= (timeout * 1000)) {
+        if ((delay * 1000) >= timeout) {
           rc |= BTR_USART_TIMEDOUT_ERR;
           break;
         }
@@ -417,14 +403,6 @@ uint32_t Usart::recv(char* buff, uint16_t bytes, uint32_t timeout)
   return rc;
 }
 
-/////////////////////////////////////////////// PROTECTED //////////////////////////////////////////
-
-//============================================= OPERATIONS =========================================
-
-/////////////////////////////////////////////// PRIVATE ////////////////////////////////////////////
-
-//============================================= OPERATIONS =========================================
-
 } // namespace btr
 
-#endif // BTR_USARTn_ENABLED
+#endif // BTR_USARTn_ENABLED > 0

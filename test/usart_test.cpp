@@ -6,7 +6,7 @@
 #include <chrono>
 
 // PROJECT INCLUDES
-#include "devices/x86/usart.hpp"
+#include "devices/usart.hpp"
 #include "devices/x86/pseudo_tty.hpp"
 #include "devices/defines.hpp"
 #include "utility/buff.hpp"
@@ -37,10 +37,8 @@ public:
       wbuff_(),
       rbuff_()
   {
-    reader_.configure(TTY_SIM_0, BAUD, DATA_BITS, ParityType::NONE, BTR_USART_IO_TIMEOUT_MS);
-    sender_.configure(TTY_SIM_1, BAUD, DATA_BITS, ParityType::NONE, BTR_USART_IO_TIMEOUT_MS);
-    reader_.open();
-    sender_.open();
+    reader_.open(BAUD, DATA_BITS, StopBitsType::ONE, ParityType::NONE, TTY_SIM_0);
+    sender_.open(BAUD, DATA_BITS, StopBitsType::ONE, ParityType::NONE, TTY_SIM_1);
     resetBuffers();
   }
 
@@ -77,7 +75,7 @@ TEST_F(UsartTest, readWriteOK)
   ssize_t rc = sender_.send((char*)wbuff_.read_ptr(), wbuff_.available());
   ASSERT_EQ(5, rc) << " Message: " << strerror(errno);
 
-  rc = reader_.recv((char*)rbuff_.write_ptr(), rbuff_.remaining());
+  rc = reader_.recv((char*)rbuff_.write_ptr(), rbuff_.remaining(), BTR_USART_IO_TIMEOUT_MS);
 
   ASSERT_EQ(5, rc) << " Message: " << strerror(errno);
   ASSERT_EQ(0, memcmp(wbuff_.data(), rbuff_.data(), wbuff_.size()));
@@ -98,7 +96,7 @@ TEST_F(UsartTest, flush)
   rc = reader_.available();
   ASSERT_EQ(0, rc);
 
-  rc = reader_.recv((char*)rbuff_.write_ptr(), rbuff_.remaining());
+  rc = reader_.recv((char*)rbuff_.write_ptr(), rbuff_.remaining(), BTR_USART_IO_TIMEOUT_MS);
   ASSERT_EQ(0, rc) << " Message: " << strerror(errno);
 
   resetBuffers();
@@ -106,7 +104,7 @@ TEST_F(UsartTest, flush)
   rc = sender_.send((char*)wbuff_.read_ptr(), wbuff_.available());
   ASSERT_EQ(5, rc) << " Message: " << strerror(errno);
 
-  rc = reader_.recv((char*)rbuff_.write_ptr(), rbuff_.remaining());
+  rc = reader_.recv((char*)rbuff_.write_ptr(), rbuff_.remaining(), BTR_USART_IO_TIMEOUT_MS);
   ASSERT_EQ(5, rc) << " Message: " << strerror(errno);
   ASSERT_EQ(0, memcmp(wbuff_.data(), rbuff_.data(), wbuff_.size())) << TestHelpers::toHex(rbuff_);
 }
@@ -115,7 +113,7 @@ TEST_F(UsartTest, readTimeout)
 {
   high_resolution_clock::time_point start = high_resolution_clock::now();
 
-  ssize_t rc = reader_.recv((char*)rbuff_.write_ptr(), rbuff_.remaining());
+  ssize_t rc = reader_.recv((char*)rbuff_.write_ptr(), rbuff_.remaining(), BTR_USART_IO_TIMEOUT_MS);
 
   high_resolution_clock::time_point now = high_resolution_clock::now();
   auto elapsed = duration_cast<milliseconds>(now - start).count();
@@ -129,10 +127,9 @@ TEST_F(UsartTest, readTimeout)
 TEST_F(UsartTest, setTimeout)
 {
   uint32_t timeout = 200;
-  reader_.setTimeout(timeout);
   high_resolution_clock::time_point start = high_resolution_clock::now();
 
-  ssize_t rc = reader_.recv((char*)rbuff_.write_ptr(), rbuff_.remaining());
+  ssize_t rc = reader_.recv((char*)rbuff_.write_ptr(), rbuff_.remaining(), timeout);
 
   high_resolution_clock::time_point now = high_resolution_clock::now();
   auto duration = duration_cast<milliseconds>(now - start).count();

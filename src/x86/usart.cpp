@@ -6,28 +6,52 @@
 #include <sys/ioctl.h>
 
 // PROJECT INCLUDES
-#include "devices/x86/usart.hpp"
+#include "devices/usart.hpp"
 
 #define BOOST_SYSTEM_NO_DEPRECATED
 
 namespace btr
 {
 
+static void onTimeout(Usart* u, const boost::system::error_code& error)
+{
+  // When the timer is cancelled, the error generated is bio::operation_aborted.
+  //
+  if (!error) {
+    // When the timer fires, there is no error, therefore just cancel pending operation.
+    u->serial_port_.cancel();
+  }
+}
+
+static void timeAsyncOpr(Usart* u, uint32_t timeout)
+{
+  u->timer_.expires_from_now(boost::posix_time::milliseconds(timeout));
+  u->timer_.async_wait(boost::bind(&onTimeout, u, bio::placeholders::error));
+  u->io_service_.run();
+}
+
+static void onOprComplete(Usart* u, const boost::system::error_code& err, size_t bytes_transferred)
+{
+  u->bytes_transferred_ = bytes_transferred;
+
+  if (err) {
+    // When timer cancels operation, the error is 89, Operation canceled.
+    errno = err.value();
+  }
+  u->timer_.cancel();
+}
+
 /////////////////////////////////////////////// PUBLIC /////////////////////////////////////////////
 
 //============================================= LIFECYCLE ==========================================
 
+#if BTR_X86 > 0
 Usart::Usart()
   :
   io_service_(),
   serial_port_(io_service_),
   timer_(io_service_),
-  bytes_transferred_(0),
-  port_name_(nullptr),
-  baud_rate_(BTR_USART1_BAUD),
-  data_bits_(BTR_USART1_DATA_BITS),
-  parity_(ParityType::NONE),
-  timeout_(BTR_USART_IO_TIMEOUT_MS)
+  bytes_transferred_(0)
 {
 }
 
@@ -35,21 +59,51 @@ Usart::~Usart()
 {
   close();
 }
+#endif // BTR_X86
 
 //============================================= OPERATIONS =========================================
 
-void Usart::configure(
-    const char* port_name,
-    uint32_t baud_rate,
-    uint8_t data_bits,
-    uint8_t parity,
-    uint32_t timeout)
+// static
+Usart* Usart::instance(uint32_t id, bool open)
 {
-  port_name_ = port_name;
-  baud_rate_ = baud_rate;
-  data_bits_ = data_bits;
-  parity_ = parity;
-  timeout_ = timeout;
+  (void) open;
+
+  switch (id) {
+#if BTR_USART0_ENABLED > 0
+    case 0:
+      if (open) {
+        usart_0.open(BTR_USART0_BAUD, BTR_USART0_DATA_BITS, BTR_USART0_STOP_BITS, BTR_USART0_PARITY,
+            BTR_USART0_PORT);
+      }
+      return &usart_0;
+#endif
+#if BTR_USART1_ENABLED > 0
+    case 1:
+      if (open) {
+        usart_1.open(BTR_USART1_BAUD, BTR_USART1_DATA_BITS, BTR_USART1_STOP_BITS, BTR_USART1_PARITY,
+           BTR_USART1_PORT);
+      }
+      return &usart_1;
+#endif
+#if BTR_USART2_ENABLED > 0
+    case 2:
+      if (open) {
+        usart_2.open(BTR_USART2_BAUD, BTR_USART2_DATA_BITS, BTR_USART2_STOP_BITS, BTR_USART2_PARITY,
+           BTR_USART2_PORT);
+      }
+      return &usart_2;
+#endif
+#if BTR_USART3_ENABLED > 0
+    case 3:
+      if (open) {
+        usart_3.open(BTR_USART3_BAUD, BTR_USART3_DATA_BITS, BTR_USART3_STOP_BITS, BTR_USART3_PARITY,
+           BTR_USART3_PORT);
+      }
+      return &usart_3;
+#endif
+    default:
+      return nullptr;
+  }
 }
 
 bool Usart::isOpen()
@@ -57,17 +111,19 @@ bool Usart::isOpen()
   return serial_port_.is_open();
 }
 
-int Usart::open()
+int Usart::open(
+    uint32_t baud, uint8_t data_bits, StopBitsType stop_bits, ParityType parity, const char* port)
 {
   errno = 0;
   boost::system::error_code ec;
-  serial_port_.open(port_name_, ec);
+  serial_port_.open(port, ec);
 
   if (0 == ec.value()) {
-    serial_port_.set_option(bio::serial_port::baud_rate(baud_rate_));
-    serial_port_.set_option(bio::serial_port::character_size(data_bits_));
+    serial_port_.set_option(bio::serial_port::baud_rate(baud));
+    serial_port_.set_option(bio::serial_port::character_size(data_bits));
+    //serial_port_.set_option(bio::serial_port::flow_control(flow_ctrl));
 
-    switch (parity_) {
+    switch (parity) {
       case EVEN:
         serial_port_.set_option(bio::serial_port::parity(bio::serial_port::parity::even));
         break;
@@ -77,6 +133,21 @@ int Usart::open()
       case NONE:
       default:
         serial_port_.set_option(bio::serial_port::parity(bio::serial_port::parity::none));
+    }
+
+    switch (stop_bits) {
+      case ONEPOINTFIVE:
+        serial_port_.set_option(bio::serial_port::stop_bits(
+              bio::serial_port_base::stop_bits::onepointfive));
+        break;
+      case TWO:
+        serial_port_.set_option(bio::serial_port::stop_bits(
+              bio::serial_port_base::stop_bits::two));
+        break;
+      case ONE:
+      default:
+        serial_port_.set_option(bio::serial_port::stop_bits(
+              bio::serial_port_base::stop_bits::one));
     }
   } else {
     errno = ec.value();
@@ -94,12 +165,6 @@ void Usart::close()
   }
 }
 
-int Usart::setTimeout(uint32_t timeout)
-{
-  timeout_ = timeout;
-  return 0;
-}
-
 int Usart::available()
 {
   int bytes_available;
@@ -107,12 +172,12 @@ int Usart::available()
   return bytes_available;
 }
 
-int Usart::flush(DirectionType queue_selector)
+int Usart::flush(DirectionType dir)
 {
   errno = 0;
   int rc = 0;
 
-  switch (queue_selector) {
+  switch (dir) {
     case IN:
       rc = tcflush(serial_port_.lowest_layer().native_handle(), TCIFLUSH);
       break;
@@ -129,18 +194,7 @@ int Usart::flush(DirectionType queue_selector)
   return rc;
 }
 
-int Usart::send(char ch, bool drain)
-{
-  return send(&ch, 1, drain);
-}
-
-int Usart::send(const char* buff, bool drain)
-{
-  uint32_t bytes = strlen(buff);
-  return send(buff, bytes, drain);
-}
-
-int Usart::send(const char* buff, uint32_t bytes, bool drain)
+uint32_t Usart::send(const char* buff, uint16_t bytes, uint32_t timeout)
 {
   io_service_.reset();
   errno = 0;
@@ -149,27 +203,14 @@ int Usart::send(const char* buff, uint32_t bytes, bool drain)
   bio::async_write(
       serial_port_,
       bio::buffer(buff, bytes),
-      boost::bind(&Usart::onOprComplete,
-        this,
-        bio::placeholders::error,
-        bio::placeholders::bytes_transferred));
+      boost::bind(
+        &onOprComplete, this, bio::placeholders::error, bio::placeholders::bytes_transferred));
 
-  timeAsyncOpr();
-
-  if (drain) {
-    tcdrain(serial_port_.lowest_layer().native_handle());
-  }
-
+  timeAsyncOpr(this, timeout);
   return bytes_transferred_;
 }
 
-int Usart::recv()
-{
-  char buff[1];
-  return recv(buff, 1);
-}
-
-int Usart::recv(char* buff, uint32_t bytes)
+uint32_t Usart::recv(char* buff, uint16_t bytes, uint32_t timeout)
 {
   io_service_.reset();
   errno = 0;
@@ -179,12 +220,9 @@ int Usart::recv(char* buff, uint32_t bytes)
       serial_port_,
       bio::buffer(buff, bytes),
       boost::bind(
-        &Usart::onOprComplete,
-        this,
-        bio::placeholders::error,
-        bio::placeholders::bytes_transferred));
+        &onOprComplete, this, bio::placeholders::error, bio::placeholders::bytes_transferred));
 
-  timeAsyncOpr();
+  timeAsyncOpr(this, timeout);
   return bytes_transferred_;
 }
 
@@ -195,34 +233,5 @@ int Usart::recv(char* buff, uint32_t bytes)
 /////////////////////////////////////////////// PRIVATE ////////////////////////////////////////////
 
 //============================================= OPERATIONS =========================================
-
-void Usart::timeAsyncOpr()
-{
-  timer_.expires_from_now(boost::posix_time::milliseconds(timeout_));
-  timer_.async_wait(boost::bind(&Usart::onTimeout, this, bio::placeholders::error));
-  io_service_.run();
-}
-
-void Usart::onOprComplete(
-    const boost::system::error_code& err, size_t bytes_transferred)
-{
-  bytes_transferred_ = bytes_transferred;
-
-  if (err) {
-    // When timer cancels operation, the error is 89, Operation canceled.
-    errno = err.value();
-  }
-  timer_.cancel();
-}
-
-void Usart::onTimeout(const boost::system::error_code& error)
-{
-  // When the timer is cancelled, the error generated is bio::operation_aborted.
-  //
-  if (!error) {
-    // When the timer fires, there is no error, therefore just cancel pending operation.
-    serial_port_.cancel();
-  }
-}
 
 } // namespace btr

@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
+/** @file */
+
 #ifndef _btr_Usb_hpp_
 #define _btr_Usb_hpp_
 
@@ -27,9 +29,13 @@ public:
 // OPERATIONS
 
   /**
+   * Provide an USB instance identified by given id.
+   *
+   * @param id - port number of a USB per the platform this code is built for
+   * @param open - open the instance if it is not already if true, false otherwise
    * @return an instance of a USB device. The instance may need to be initialized.
    */
-  static Usb* instance();
+  static Usb* instance(uint32_t id, bool open);
 
   /**
    * Check if device is open.
@@ -39,20 +45,14 @@ public:
   static bool isOpen();
 
   /**
-   * Initialize the device.
+   * Open the device.
    */
   static int open();
 
   /**
-   * Stop the device, queues, clocks.
+   * Close the device.
    */
   static void close();
-
-  /**
-   * @param timeout - timeout in milliseconds
-   * @return 0 on success, -1 on failure
-   */
-  static int setTimeout(uint32_t timeout);
 
   /**
    * Check if there is data in receive queue.
@@ -72,48 +72,26 @@ public:
   static int flush(DirectionType queue_selector);
 
   /**
-   * Send a single character.
-   *
-   * @param ch - the character to send
-   * @param drain - block until all output has been transmitted
-   * @return 0 on success, -1 if queue was full
-   */
-  static int send(char ch, bool drain = false);
-
-  /**
-   * Send data from buff up to null character.
-   *
-   * @param buff - data buffer
-   * @param drain - block until all output has been transmitted
-   * @return 0 on success, -1 if queue was full
-   */
-  static int send(const char* buff, bool drain = false);
-
-  /**
    * Send a number of bytes from the buffer.
    *
    * @param buff - data buffer
    * @param bytes - number of bytes
-   * @param drain - block until all output has been transmitted
-   * @return 0 on success, -1 if queue was full
+   * @param timeout - maximum time to wait to submit one character
+   * @return bits from 16 up to 24 contain error code(s), lower 16 bits contains the number of bytes
+   *  submitted
    */
-  static int send(const char* buff, uint32_t bytes, bool drain = false);
-
-  /**
-   * Receive a single character.
-   *
-   * @return the received character or -1 on error
-   */
-  static int recv();
+  static uint32_t send(const char* buff, uint16_t bytes, uint32_t timeout);
 
   /**
    * Receive a number of bytes and store in the buffer.
    *
    * @param buff - buffer to store received data
    * @param bytes - the number of bytes to receive
-   * @return bytes received or -1 on error
+   * @param timeout - maximum time to wait to receive one character
+   * @return bits from 16 up to 24 contain error code(s), lower 16 bits contains the number of bytes
+   *  received
    */
-  static int recv(char* buff, uint32_t bytes);
+  static uint32_t recv(char* buff, uint16_t bytes, uint32_t timeout = BTR_USART_RX_TIMEOUT_MS);
 };
 
 } // namespace btr

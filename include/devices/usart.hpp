@@ -1,10 +1,23 @@
 // Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
+/** @file */
+
 #ifndef _btr_Usart_hpp_
 #define _btr_Usart_hpp_
 
 // SYSTEM INCLUDES
+#if BTR_X86 > 0
+#include <boost/asio.hpp>
+namespace bio = boost::asio;
+#elif BTR_STM32 > 0
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/usart.h>
+#include <libopencm3/cm3/nvic.h>
+#include <FreeRTOS.h>
+#include <queue.h>
+#endif
 
 // PROJECT INCLUDES
 #include "devices/defines.hpp"
@@ -19,8 +32,10 @@
 namespace btr
 {
 
+//==================================================================================================
+
 /**
- * The class provides an interface to USART devices on a microcontroller.
+ * The class provides an interface to a USART device.
  */
 class Usart
 {
@@ -28,11 +43,22 @@ public:
 
 // LIFECYCLE
 
+#if BTR_X86 > 0
   /**
-   * Ctor.
+   * Create an instance and initialize data members.
+   */
+  Usart();
+
+  /**
+   * Call close()
+   */
+  ~Usart();
+
+#elif BTR_AVR > 0
+  /**
+   * Create an instance and initialize data members.
    */
   Usart(
-      uint8_t id,
       volatile uint8_t* ubrr_h,
       volatile uint8_t* ubrr_l,
       volatile uint8_t* ucsr_a,
@@ -40,15 +66,33 @@ public:
       volatile uint8_t* ucsr_c,
       volatile uint8_t* udr);
 
-// OPERATIONS
+#elif BTR_STM32 > 0
+  /**
+   * Create an instance and initialize data members.
+   */
+  Usart(
+      rcc_periph_clken rcc_gpio,
+      rcc_periph_clken rcc_usart,
+      uint32_t port,
+      uint32_t pin,
+      uint32_t irq,
+      uint16_t tx,
+      uint16_t rx,
+      uint16_t cts,
+      uint16_t rts);
+#endif
 
   /**
-   * Create new or return an instance of a USART identified by usart_id.
+   * Provide an USART instance identified by given id.
    *
-   * @param usart_id - port number of a USART per the platform this code is built for
-   * @return an instance of a USART device. The instance may need to be initialized.
+   * @param id - port number of a USART per the platform this code is built for
+   * @param open - open the instance if it is not already if true, false otherwise
+   * @return an instance of a USART device. The instance will need to be initialized
+   *  unless already done so.
    */
-  static Usart* instance(uint32_t usart_id);
+  static Usart* instance(uint32_t id, bool open);
+
+// OPERATIONS
 
   /**
    * Check if device is open.
@@ -58,9 +102,19 @@ public:
   bool isOpen();
 
   /**
-   * Initialize the device.
+   * Open USART device.
+   *
+   * @param baud - baud rate must be one of standard values
+   * @param data_bits - number of data bits
+   * @param stop_bits - number of stop bits
+   * @param parity - parity type
+   * @param port - serial IO port name (e.g. on x86: /dev/ttyS0, on AVR: nullptr)
+   * @return 0 on success, -1 on failure
+   * @see http://man7.org/linux/man-pages/man3/termios.3.html
    */
-  int open();
+  int open(
+      uint32_t baud, uint8_t data_bits, StopBitsType stop_bits, ParityType parity,
+      const char* port = nullptr);
 
   /**
    * Stop the device, queues, clocks.
@@ -77,29 +131,19 @@ public:
   /**
    * Flush pending, not-transmitted and non-read, data on the serial port.
    *
-   * @param queue_selector - one of:
+   * @param dir - one of:
    *  IN - flushes data received but not read.
    *  OUT - flushes data written but not transmitted.
    *  INOUT - flushes both data received but not read, and data written but not transmitted.
    */
-  int flush(DirectionType queue_selector);
-
-  /**
-   * Handle received data.
-   */
-  void onRecv();
-
-  /**
-   * Process event of the data just sent.
-   */
-  void onSend();
+  int flush(DirectionType dir);
 
   /**
    * Send a number of bytes from the buffer.
    *
    * @param buff - data buffer
    * @param bytes - number of bytes
-   * @param timeout - maximum microseconds to wait to submit one character
+   * @param timeout - maximum time to wait to submit one character
    * @return bits from 16 up to 24 contain error code(s), lower 16 bits contains the number of bytes
    *  submitted
    */
@@ -110,7 +154,7 @@ public:
    *
    * @param buff - buffer to store received data
    * @param bytes - the number of bytes to receive
-   * @param timeout - maximum microseconds to wait to receive one character
+   * @param timeout - maximum time to wait to receive one character
    * @return bits from 16 up to 24 contain error code(s), lower 16 bits contains the number of bytes
    *  received
    */
@@ -118,14 +162,35 @@ public:
 
 // ATTRIBUTES
 
-  uint8_t id_;
+#if BTR_X86 > 0
+  bio::io_service     io_service_;
+  bio::serial_port    serial_port_;
+  bio::deadline_timer timer_;
+  uint16_t            bytes_transferred_;
+#elif BTR_AVR > 0
   volatile uint8_t* ubrr_h_;
   volatile uint8_t* ubrr_l_;
   volatile uint8_t* ucsr_a_;
   volatile uint8_t* ucsr_b_;
   volatile uint8_t* ucsr_c_;
   volatile uint8_t* udr_;
+#elif BTR_STM32 > 0
+  rcc_periph_clken rcc_gpio_;
+  rcc_periph_clken rcc_usart_;
+  uint32_t port_;
+  uint32_t pin_;
+  uint32_t irq_;
+  uint16_t tx_;
+  uint16_t rx_;
+  uint16_t cts_;
+  uint16_t rts_;
+  QueueHandle_t tx_q_;
+#endif
+
   volatile uint8_t rx_error_;
+  bool enable_flush_;
+
+#if BTR_STM32 > 0 || BTR_AVR > 0
 
 #if BTR_USART_RX_BUFF_SIZE > 256
   volatile uint16_t rx_head_;
@@ -133,26 +198,24 @@ public:
 #else
   volatile uint8_t rx_head_;
   volatile uint8_t rx_tail_;
-#endif
+#endif // BTR_USART_RX_BUFF_SIZE > 256
+
+  uint8_t rx_buff_[BTR_USART_RX_BUFF_SIZE];
+#endif // BTR_STM32 > 0 || BTR_AVR > 0
+
+#if BTR_AVR > 0
+
 #if BTR_USART_TX_BUFF_SIZE > 256
   volatile uint16_t tx_head_;
   volatile uint16_t tx_tail_;
 #else
   volatile uint8_t tx_head_;
   volatile uint8_t tx_tail_;
-#endif
-  uint8_t rx_buff_[BTR_USART_RX_BUFF_SIZE];
+#endif // BTR_USART_TX_BUFF_SIZE > 256
+
   uint8_t tx_buff_[BTR_USART_TX_BUFF_SIZE];
-  bool enable_flush_;
+#endif // BTR_AVR > 0
 };
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// INLINE OPERATIONS
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/////////////////////////////////////////////// PUBLIC /////////////////////////////////////////////
-
-//============================================= OPERATIONS =========================================
 
 } // namespace btr
 

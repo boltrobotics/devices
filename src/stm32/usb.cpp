@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
-#if BTR_USB1_ENABLED > 0
+#if BTR_USB0_ENABLED > 0
 
 // SYSTEM INCLUDES
 #include <libopencm3/stm32/rcc.h>
@@ -9,7 +9,6 @@
 #include <libopencm3/usb/usbd.h>
 #include <libopencm3/usb/cdc.h>
 #include <libopencm3/cm3/scb.h>
-
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
@@ -17,34 +16,12 @@
 // PROJECT INCLUDES
 #include "devices/stm32/usb.hpp"  // class implemented
 
-#if !defined(TX_Q_SIZE)
-#define TX_Q_SIZE 64
-#endif
-#if !defined(RX_Q_SIZE)
-#define RX_Q_SIZE 64
-#endif
-#if !defined(RX_BUFF_SIZE)
-#define RX_BUFF_SIZE 64
-#endif
-#if !defined(TX_BUFF_SIZE)
-#define TX_BUFF_SIZE 64
-#endif
-#if !defined(INTR_BUFF_SIZE)
-#define INTR_BUFF_SIZE 16
-#endif
-#if !defined(CTRL_BUFF_SIZE)
-#define CTRL_BUFF_SIZE 128
-#endif
-#if !defined(TX_Q_DELAY)
-#define TX_Q_DELAY 10
-#endif
-
 extern "C" {
 
 static volatile bool ready_ = false;
 static QueueHandle_t tx_q_;
 static QueueHandle_t rx_q_;
-static uint8_t ctrl_buff_[CTRL_BUFF_SIZE];
+static uint8_t ctrl_buff_[BTR_USART_CR_BUFF_SIZE];
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -232,9 +209,9 @@ static void onDataRecv(usbd_device* usbd_dev, uint8_t ep)
   uint32_t rx_q_avail = uxQueueSpacesAvailable(rx_q_);
 
   if (rx_q_avail > 0) {
-    char buff[RX_BUFF_SIZE];
+    char buff[BTR_USART_RX_BUFF_SIZE];
 
-    int bytes = (RX_BUFF_SIZE < rx_q_avail ? RX_BUFF_SIZE : rx_q_avail);
+    int bytes = (BTR_USART_RX_BUFF_SIZE < rx_q_avail ? BTR_USART_RX_BUFF_SIZE : rx_q_avail);
     bytes = usbd_ep_read_packet(usbd_dev, 0x01, buff, bytes);
 
     for (int i = 0; i < bytes; ++i) {
@@ -248,7 +225,7 @@ static void txTask(void* arg)
 {
   usbd_device* usb_dev = (usbd_device *) arg;
 
-  char buff[TX_BUFF_SIZE];
+  char buff[BTR_USART_TX_BUFF_SIZE];
   uint16_t bytes = 0;
 
   for (;;) {
@@ -277,9 +254,9 @@ static void setConfig(usbd_device* usbd_dev, uint16_t wval)
 {
   (void) wval;
 
-  usbd_ep_setup(usbd_dev, 0x01, USB_ENDPOINT_ATTR_BULK, RX_BUFF_SIZE, onDataRecv);
-  usbd_ep_setup(usbd_dev, 0x82, USB_ENDPOINT_ATTR_BULK, TX_BUFF_SIZE, NULL);
-  usbd_ep_setup(usbd_dev, 0x83, USB_ENDPOINT_ATTR_INTERRUPT, INTR_BUFF_SIZE, NULL);
+  usbd_ep_setup(usbd_dev, 0x01, USB_ENDPOINT_ATTR_BULK, BTR_USART_RX_BUFF_SIZE, onDataRecv);
+  usbd_ep_setup(usbd_dev, 0x82, USB_ENDPOINT_ATTR_BULK, BTR_USART_TX_BUFF_SIZE, NULL);
+  usbd_ep_setup(usbd_dev, 0x83, USB_ENDPOINT_ATTR_INTERRUPT, BTR_USART_IR_BUFF_SIZE, NULL);
 
   usbd_register_control_callback(
       usbd_dev,
@@ -292,8 +269,8 @@ static void setConfig(usbd_device* usbd_dev, uint16_t wval)
 
 static void initUsb()
 {
-  tx_q_ = xQueueCreate(TX_Q_SIZE, sizeof(char));
-  rx_q_ = xQueueCreate(RX_Q_SIZE, sizeof(char));
+  tx_q_ = xQueueCreate(BTR_USART_TX_BUFF_SIZE, sizeof(char));
+  rx_q_ = xQueueCreate(BTR_USART_RX_BUFF_SIZE, sizeof(char));
 
   rcc_periph_clock_enable(RCC_GPIOA);
   rcc_periph_clock_enable(RCC_USB);
@@ -322,8 +299,13 @@ static Usb usb_;
 //============================================= OPERATIONS =========================================
 
 // static
-Usb* Usb::instance()
+Usb* Usb::instance(uint32_t id, bool open)
 {
+  (void) id;
+
+  if (open) {
+    Usb::open();
+  }
   return &usb_;
 }
 
@@ -349,54 +331,26 @@ void Usb::close()
   // TODO turn off the clocks, stop transmit task, etc.
 }
 
-int Usb::setTimeout(uint32_t timeout)
-{
-  (void) timeout;
-  return 0;
-}
-
 int Usb::available()
 {
   return uxQueueMessagesWaiting(rx_q_);
 }
 
-int Usb::flush(DirectionType queue_selector)
+int Usb::flush(DirectionType dir)
 {
   // TODO
-  (void) queue_selector;
+  (void) dir;
   return 0;
 }
 
-int Usb::send(char ch, bool drain)
+// static
+uint32_t Usb::send(const char* buff, uint16_t bytes, uint32_t timeout)
 {
-  (void) drain;
-
-  while (false == ready_) {
-    taskYIELD();
-  }
-  return (pdPASS == xQueueSend(tx_q_, &ch, TX_Q_DELAY) ? 0 : -1);
-}
-
-int Usb::send(const char* buff, bool drain)
-{
-  (void) drain;
-  int rc = 0;
-
-  while (*buff) {
-    if (0 != (rc = send(*buff++))) {
-      break;
-    }
-  }
-  return rc;
-}
-
-int Usb::send(const char* buff, uint32_t bytes, bool drain)
-{
-  (void) drain;
   int rc = 0;
 
   while (bytes-- > 0) {
-    if (0 != (rc = send(*buff))) {
+    if (pdPASS != xQueueSend(tx_q_, buff, pdMS_TO_TICKS(timeout))) {
+      rc = -1; // TODO
       break;
     }
     ++buff;
@@ -404,27 +358,40 @@ int Usb::send(const char* buff, uint32_t bytes, bool drain)
   return rc;
 }
 
-int Usb::recv()
+// static
+uint32_t Usb::recv(char* buff, uint16_t bytes, uint32_t timeout)
 {
-  char ch;
+  uint32_t rc = 0;
+  uint32_t delay = 0;
 
-  if (xQueueReceive(rx_q_, &ch, TX_Q_DELAY) != pdPASS) {
-    return -1;
+  while (bytes > 0) {
+    if (rx_head_ != rx_tail_) {
+      *buff++ = rx_buff_[rx_tail_];  
+      rx_tail_ = (rx_tail_ + 1 ) % BTR_USART_RX_BUFF_SIZE;
+      delay = 0;
+      --bytes;
+      ++rc;
+    } else {
+#if 0      
+      if (timeout > 0) {
+        vTaskDelay(pdMS_TO_TICKS(BTR_USART_RX_DELAY_MS));
+        delay += BTR_USART_RX_DELAY_US;
+
+        if (delay >= timeout) {
+          rc |= BTR_USART_TIMEDOUT_ERR;
+          break;
+        }
+      }
+#else
+      (void) delay; (void) timeout; // FIXME
+      taskYIELD();
+#endif
+    }
   }
-  return ch;
-}
 
-int Usb::recv(char* buff, uint32_t bytes)
-{
-  uint32_t byte_idx = 0;
-
-  while (bytes > 0 && (byte_idx + 1) < bytes) {
-    int ch = recv();
-    buff[byte_idx++] = (char) ch;
-  }
-
-  buff[byte_idx] = 0;
-  return byte_idx;
+  rc |= (uint32_t(rx_error_) << 16);
+  rx_error_ = 0;
+  return rc;
 }
 
 /////////////////////////////////////////////// PROTECTED //////////////////////////////////////////
@@ -437,4 +404,4 @@ int Usb::recv(char* buff, uint32_t bytes)
 
 } // namespace btr
 
-#endif // BTR_USB1_ENABLED > 0
+#endif // BTR_USB0_ENABLED > 0

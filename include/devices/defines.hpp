@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
+/** @file */
+
 #ifndef _btr_Defines_hpp_
 #define _btr_Defines_hpp_
 
@@ -14,12 +16,14 @@ namespace btr
 // General {
 
 #if BTR_AVR > 0
+//! @cond Suppress_Doxygen_Warning
 #include <avr/io.h>
+//! @endcond
 
-#define BV(bit)               (1 << bit)
-#define set_bit(sfr, bit)     (_SFR_BYTE(sfr) |= BV(bit))  // old sbi()
-#define clear_bit(sfr, bit)   (_SFR_BYTE(sfr) &= ~BV(bit)) // old cbi()
-#define toggle_bit(sfr, bit)  (_SFR_BYTE(sfr) ^= BV(bit))  
+#define BV(bit)                 (1 << bit)
+#define set_bit(sfr, bit)       (_SFR_BYTE(sfr) |= BV(bit))  // old sbi()
+#define clear_bit(sfr, bit)     (_SFR_BYTE(sfr) &= ~BV(bit)) // old cbi()
+#define toggle_bit(sfr, bit)    (_SFR_BYTE(sfr) ^= BV(bit))  
 
 #endif // BTR_AVR > 0
 
@@ -31,7 +35,7 @@ namespace btr
 #if BTR_AVR > 0 || BTR_ARD > 0
 
 #ifndef BTR_TIME_ENABLED 
-#define BTR_TIME_ENABLED      1
+#define BTR_TIME_ENABLED        1
 #endif
 
 #endif // Platform
@@ -93,23 +97,54 @@ namespace btr
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // USART {
 
+/** Supported parity types. */
+typedef enum
+{
+  NONE,
+  ODD,
+  EVEN
+} ParityType;
+
+#define TO_PARITY(v) ((v==1 ? ParityType::ODD : (v==2 ? ParityType::EVEN : ParityType::NONE)))
+
+/** Supported stop bit types. */
+typedef enum
+{
+  ONE,
+  ONEPOINTFIVE,
+  TWO
+} StopBitsType;
+
+#define TO_STOP_BITS(v) ((v==2 ? StopBitsType::TWO : StopBitsType::ONE))
+
+/** Data flow direction. */
+typedef enum
+{
+  IN,
+  OUT,
+  INOUT
+} DirectionType;
+
 #if BTR_STM32 > 0
 
-#define BTR_USART_MIN_ID        1
-#define BTR_USART_MAX_ID        3
+#define BTR_USART_MIN_ID        0
+#define BTR_USART_MAX_ID        2
 
 #elif BTR_AVR > 0 || BTR_ARD > 0
 
 #if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P_)
-#define BTR_USART_MIN_ID        1
-#define BTR_USART_MAX_ID        1
+#define BTR_USART_MIN_ID        0
+#define BTR_USART_MAX_ID        0
 #elif defined(__AVR__ATmega1280__) || defined(__AVR_ATmega2560__)
-#define BTR_USART_MIN_ID        1
-#define BTR_USART_MAX_ID        4
+#define BTR_USART_MIN_ID        0
+#define BTR_USART_MAX_ID        3
 #endif // AVR board
 
 #endif // Platform
 
+#ifndef BTR_USART0_ENABLED
+#define BTR_USART0_ENABLED      0
+#endif
 #ifndef BTR_USART1_ENABLED
 #define BTR_USART1_ENABLED      0
 #endif
@@ -119,18 +154,15 @@ namespace btr
 #ifndef BTR_USART3_ENABLED
 #define BTR_USART3_ENABLED      0
 #endif
-#ifndef BTR_USART4_ENABLED
-#define BTR_USART4_ENABLED      0
-#endif
 
-// Default time-outs and delays in microseconds
 #ifndef BTR_USART_RX_DELAY_US
-#define BTR_USART_RX_DELAY_US   1000
+#define BTR_USART_RX_DELAY_US   5000
 #endif
 #ifndef BTR_USART_TX_DELAY_US
-#define BTR_USART_TX_DELAY_US   1000
+#define BTR_USART_TX_DELAY_US   5000
 #endif
 #define BTR_USART_TX_DELAY_MS   (BTR_USART_TX_DELAY_US / 1000) 
+#define BTR_USART_RX_DELAY_MS   (BTR_USART_RX_DELAY_US / 1000) 
 
 #ifndef BTR_USART_IO_TIMEOUT_MS
 #define BTR_USART_IO_TIMEOUT_MS 100
@@ -148,16 +180,20 @@ namespace btr
 #ifndef BTR_USART_TX_BUFF_SIZE
 #define BTR_USART_TX_BUFF_SIZE  64
 #endif
+#ifndef BTR_USART_IR_BUFF_SIZE
+#define BTR_USART_IR_BUFF_SIZE  16
+#endif
+#ifndef BTR_USART_CR_BUFF_SIZE
+#define BTR_USART_CR_BUFF_SIZE  64
+#endif
 
 #ifndef BTR_USART_USE_2X
 #define BTR_USART_USE_2X        1
 #endif
 
-#define BTR_USART1_NAME         "USART1"
-#define BTR_USART2_NAME         "USART2"
-#define BTR_USART3_NAME         "USART3"
-#define BTR_USART4_NAME         "USART4"
-
+#ifndef BTR_USART0_BAUD
+#define BTR_USART0_BAUD         115200
+#endif
 #ifndef BTR_USART1_BAUD
 #define BTR_USART1_BAUD         115200
 #endif
@@ -167,10 +203,10 @@ namespace btr
 #ifndef BTR_USART3_BAUD
 #define BTR_USART3_BAUD         115200
 #endif
-#ifndef BTR_USART4_BAUD
-#define BTR_USART4_BAUD         115200
-#endif
 
+#ifndef BTR_USART0_DATA_BITS
+#define BTR_USART0_DATA_BITS    8
+#endif
 #ifndef BTR_USART1_DATA_BITS
 #define BTR_USART1_DATA_BITS    8
 #endif
@@ -180,36 +216,36 @@ namespace btr
 #ifndef BTR_USART3_DATA_BITS
 #define BTR_USART3_DATA_BITS    8
 #endif
-#ifndef BTR_USART4_DATA_BITS
-#define BTR_USART4_DATA_BITS    8
-#endif
 
+#ifndef BTR_USART0_PARITY
+#define BTR_USART0_PARITY       ParityType::NONE
+#endif
 #ifndef BTR_USART1_PARITY
-#define BTR_USART1_PARITY       'N'
+#define BTR_USART1_PARITY       ParityType::NONE
 #endif
 #ifndef BTR_USART2_PARITY
-#define BTR_USART2_PARITY       'N'
+#define BTR_USART2_PARITY       ParityType::NONE
 #endif
 #ifndef BTR_USART3_PARITY
-#define BTR_USART3_PARITY       'N'
-#endif
-#ifndef BTR_USART4_PARITY
-#define BTR_USART4_PARITY       'N'
+#define BTR_USART3_PARITY       ParityType::NONE
 #endif
 
+#ifndef BTR_USART0_STOP_BITS
+#define BTR_USART0_STOP_BITS    StopBitsType::ONE
+#endif
 #ifndef BTR_USART1_STOP_BITS
-#define BTR_USART1_STOP_BITS    1
+#define BTR_USART1_STOP_BITS    StopBitsType::ONE
 #endif
 #ifndef BTR_USART2_STOP_BITS
-#define BTR_USART2_STOP_BITS    1
+#define BTR_USART2_STOP_BITS    StopBitsType::ONE
 #endif
 #ifndef BTR_USART3_STOP_BITS
-#define BTR_USART3_STOP_BITS    1
-#endif
-#ifndef BTR_USART4_STOP_BITS
-#define BTR_USART4_STOP_BITS    1
+#define BTR_USART3_STOP_BITS    StopBitsType::ONE
 #endif
 
+#ifndef BTR_USART0_RTS
+#define BTR_USART0_RTS          0
+#endif
 #ifndef BTR_USART1_RTS
 #define BTR_USART1_RTS          0
 #endif
@@ -219,10 +255,10 @@ namespace btr
 #ifndef BTR_USART3_RTS
 #define BTR_USART3_RTS          0
 #endif
-#ifndef BTR_USART4_RTS
-#define BTR_USART4_RTS          0
-#endif
 
+#ifndef BTR_USART0_CTS
+#define BTR_USART0_CTS          0
+#endif
 #ifndef BTR_USART1_CTS
 #define BTR_USART1_CTS          0
 #endif
@@ -232,29 +268,12 @@ namespace btr
 #ifndef BTR_USART3_CTS
 #define BTR_USART3_CTS          0
 #endif
-#ifndef BTR_USART4_CTS
-#define BTR_USART4_CTS          0
-#endif
 
 #define BTR_USART_CONFIG(parity, stop_bits, data_bits) \
-  ( (parity == 'N' ? 0 : (parity == 'E' ? 32 : 48)) \
-    + (stop_bits == 1 ? 0 : 8) + (2 * (data_bits - 5)) )
+  ( (parity == ParityType::NONE ? 0 : (parity == ParityType::EVEN ? 32 : 48)) \
+    + (stop_bits == StopBitsType::ONE ? 0 : 8) + (2 * (data_bits - 5)) )
 
 // } USART
-
-typedef enum
-{
-  NONE,
-  ODD,
-  EVEN
-} ParityType;
-
-typedef enum
-{
-  IN,
-  OUT,
-  INOUT
-} DirectionType;
 
 } // namespace btr
 

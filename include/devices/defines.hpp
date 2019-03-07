@@ -58,6 +58,13 @@ namespace btr
 #define BTR_BUILTIN_LED_PIN   GPIO12
 #endif
 
+#define LED_ENABLE() \
+  do { \
+    rcc_periph_clock_enable(BTR_BUILTIN_LED_CLK); \
+    gpio_set_mode(BTR_BUILTIN_LED_PORT, GPIO_MODE_OUTPUT_2_MHZ, \
+        GPIO_CNF_OUTPUT_PUSHPULL, BTR_BUILTIN_LED_PIN); \
+  } while (0);
+
 #define LED_ON() (gpio_clear(BTR_BUILTIN_LED_PORT, BTR_BUILTIN_LED_PIN))
 #define LED_OFF() (gpio_set(BTR_BUILTIN_LED_PORT, BTR_BUILTIN_LED_PIN))
 #define LED_TOGGLE() (gpio_toggle(BTR_BUILTIN_LED_PORT, BTR_BUILTIN_LED_PIN))

@@ -44,8 +44,8 @@ static void txTask(void* arg)
       while (false == usart_get_flag(u->pin_, USART_SR_TXE)) {
         taskYIELD();
       }
-      LED_TOGGLE();
       usart_send(u->pin_, ch);
+      LED_TOGGLE();
     }
   }
 }
@@ -54,12 +54,12 @@ static void onRecv(btr::Usart* u)
 {
   while (USART_SR(u->pin_) & USART_SR_RXNE) {
     char ch = USART_DR(u->pin_);
-    uint32_t ntail = (u->rx_tail_ + 1) % BTR_USART_RX_BUFF_SIZE;
+    uint32_t tail_next = (u->rx_tail_ + 1) % BTR_USART_RX_BUFF_SIZE;
 
     // Save data if buffer has room, discard the data if there is no room.
-    if (ntail != u->rx_head_) {
+    if (tail_next != u->rx_head_) {
       u->rx_buff_[u->rx_tail_] = ch;
-      u->rx_tail_ = ntail;
+      u->rx_tail_ = tail_next;
     }
   }
   LED_TOGGLE();
@@ -248,7 +248,11 @@ void Usart::close()
   usart_disable(pin_);
   rcc_periph_clock_disable(rcc_usart_);
   rcc_periph_clock_disable(rcc_gpio_);
-  if (nullptr != tx_q_) { vQueueDelete(tx_q_); tx_q_ = nullptr; }
+
+  if (nullptr != tx_q_) {
+    vQueueDelete(tx_q_);
+    tx_q_ = nullptr;
+  }
 }
 
 int Usart::available()
@@ -259,29 +263,29 @@ int Usart::available()
 
 int Usart::flush(DirectionType dir)
 {
-  (void) dir;
+  int rc = 0;
 
-#if 0
-  // TODO implement flush
-  while (uxQueueMessagesWaiting(txq()) > 0) {
-    taskYIELD();
+  if (dir == DirectionType::OUT || dir == DirectionType::INOUT) {
+    if ((rc = uxQueueMessagesWaiting(tx_q_)) > 0) {
+      vTaskDelay(pdMS_TO_TICKS(BTR_USART_TX_DELAY_MS));
+      rc = uxQueueMessagesWaiting(tx_q_);
+    }
   }
-  struct UsartInfo* info = &usart_info_[id_ - 1];
-  usart_send_blocking(info->pin, ch);
-#endif
-  return 0;
+  return rc;
 }
 
 uint32_t Usart::send(const char* buff, uint16_t bytes, uint32_t timeout)
 {
-  int rc = 0;
+  uint32_t rc = 0;
 
-  while (bytes-- > 0) {
+  while (bytes > 0) {
     if (pdPASS != xQueueSend(tx_q_, buff, pdMS_TO_TICKS(timeout))) {
-      rc = -1; // TODO
+      rc |= BTR_USART_TIMEDOUT_ERR;
       break;
     }
     ++buff;
+    ++rc;
+    --bytes;
   }
   return rc;
 }
@@ -299,20 +303,18 @@ uint32_t Usart::recv(char* buff, uint16_t bytes, uint32_t timeout)
       --bytes;
       ++rc;
     } else {
-#if 0      
       if (timeout > 0) {
-        vTaskDelay(pdMS_TO_TICKS(BTR_USART_RX_DELAY_MS));
-        delay += BTR_USART_RX_DELAY_MS;
-
         if (delay >= timeout) {
           rc |= BTR_USART_TIMEDOUT_ERR;
           break;
+        } else {
+          // Wait and test queue one time after the delay.
+          vTaskDelay(pdMS_TO_TICKS(timeout));
+          delay = timeout;
         }
+      } else {
+        taskYIELD();
       }
-#else
-      (void) delay; (void) timeout; // FIXME
-      taskYIELD();
-#endif
     }
   }
 

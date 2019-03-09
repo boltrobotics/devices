@@ -268,24 +268,6 @@ static void setConfig(usbd_device* usbd_dev, uint16_t wval)
   ready_ = true;
 }
 
-static void initUsb()
-{
-  tx_q_ = xQueueCreate(BTR_USART_TX_BUFF_SIZE, sizeof(char));
-  rx_q_ = xQueueCreate(BTR_USART_RX_BUFF_SIZE, sizeof(char));
-
-  rcc_periph_clock_enable(RCC_GPIOA);
-  rcc_periph_clock_enable(RCC_USB);
-
-  usbd_device* usb_dev = usbd_init(
-      &st_usbfs_v1_usb_driver, &usb_dev_info, &usb_cnf_info,
-      usb_strings, 3,
-      ctrl_buff_, sizeof(ctrl_buff_));
-
-  usbd_register_set_config_callback(usb_dev, setConfig);
-
-  xTaskCreate(txTask, "USBTX", configMINIMAL_STACK_SIZE, usb_dev, configMAX_PRIORITIES-1, NULL);
-}
-
 } // extern "C"
 
 namespace btr
@@ -317,15 +299,34 @@ bool Usb::isOpen()
 
 int Usb::open()
 {
-  if (false == ready_) {
-    initUsb();
+  if (false == isOpen()) {
+    tx_q_ = xQueueCreate(BTR_USART_TX_BUFF_SIZE, sizeof(char));
+    rx_q_ = xQueueCreate(BTR_USART_RX_BUFF_SIZE, sizeof(char));
+
+    rcc_periph_clock_enable(RCC_GPIOA);
+    rcc_periph_clock_enable(RCC_USB);
+
+    usbd_device* usb_dev = usbd_init(
+        &st_usbfs_v1_usb_driver, &usb_dev_info, &usb_cnf_info,
+        usb_strings, 3,
+        ctrl_buff_, sizeof(ctrl_buff_));
+
+    usbd_register_set_config_callback(usb_dev, setConfig);
+
+    xTaskCreate(txTask, "USB", configMINIMAL_STACK_SIZE, usb_dev, configMAX_PRIORITIES-1, NULL);
   }
   return 0;
 }
 
 void Usb::close()
 {
-  // TODO turn off the clocks, stop transmit task, etc.
+  // There is no use case for closing USB device. Skip implementation until it's required.
+#if 0
+  if (true == isOpen()) {
+    rcc_periph_clock_disable(RCC_USB);
+    //rcc_periph_clock_disable(RCC_GPIOA);
+  }
+#endif
 }
 
 int Usb::available()
@@ -335,22 +336,34 @@ int Usb::available()
 
 int Usb::flush(DirectionType dir)
 {
-  // TODO
-  (void) dir;
-  return 0;
+  int rc = 0;
+
+  if (dir == DirectionType::OUT || dir == DirectionType::INOUT) {
+    if ((rc = uxQueueMessagesWaiting(tx_q_)) > 0) {
+      vTaskDelay(pdMS_TO_TICKS(BTR_USART_TX_DELAY_MS));
+      rc = uxQueueMessagesWaiting(tx_q_);
+    }
+  }
+  return rc;
 }
 
 // static
 uint32_t Usb::send(const char* buff, uint16_t bytes, uint32_t timeout)
 {
-  int rc = 0;
+  uint32_t rc = 0;
 
-  while (bytes-- > 0) {
-    if (pdPASS != xQueueSend(tx_q_, buff, pdMS_TO_TICKS(timeout))) {
-      rc = -1; // TODO
-      break;
+  if (isOpen()) {
+    while (bytes > 0) {
+      if (pdPASS != xQueueSend(tx_q_, buff, pdMS_TO_TICKS(timeout))) {
+        rc |= BTR_IO_TIMEDOUT_ERR;
+        break;
+      }
+      ++buff;
+      ++rc;
+      --bytes;
     }
-    ++buff;
+  } else {
+    rc = BTR_IO_NOTOPEN_ERR;
   }
   return rc;
 }
@@ -360,30 +373,26 @@ uint32_t Usb::recv(char* buff, uint16_t bytes, uint32_t timeout)
 {
   uint32_t rc = 0;
 
-  while (bytes > 0) {
-    if (pdPASS == xQueueReceive(rx_q_, buff, pdMS_TO_TICKS(timeout))) {
-      ++buff;
-      --bytes;
-      ++rc;
-    } else {
-      // return can be errQUEUE_EMPTY as per PDF manual (not online)
-      rc |= BTR_USART_TIMEDOUT_ERR;
-      break;
+  if (isOpen()) {
+    while (bytes > 0) {
+      if (pdPASS == xQueueReceive(rx_q_, buff, pdMS_TO_TICKS(timeout))) {
+        ++buff;
+        --bytes;
+        ++rc;
+      } else {
+        // return can be errQUEUE_EMPTY as per PDF manual (not online)
+        rc |= BTR_IO_TIMEDOUT_ERR;
+        break;
+      }
     }
-  }
 
-  rc |= (uint32_t(rx_error_) << 16);
-  rx_error_ = 0;
+    rc |= (uint32_t(rx_error_) << 16);
+    rx_error_ = 0;
+  } else {
+    rc = BTR_IO_NOTOPEN_ERR;
+  }
   return rc;
 }
-
-/////////////////////////////////////////////// PROTECTED //////////////////////////////////////////
-
-//============================================= OPERATIONS =========================================
-
-/////////////////////////////////////////////// PRIVATE ////////////////////////////////////////////
-
-//============================================= OPERATIONS =========================================
 
 } // namespace btr
 

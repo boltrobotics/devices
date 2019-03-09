@@ -280,7 +280,7 @@ uint32_t Usart::send(const char* buff, uint16_t bytes, uint32_t timeout)
 
   while (bytes > 0) {
     if (pdPASS != xQueueSend(tx_q_, buff, pdMS_TO_TICKS(timeout))) {
-      rc |= BTR_USART_TIMEDOUT_ERR;
+      rc |= BTR_IO_TIMEDOUT_ERR;
       break;
     }
     ++buff;
@@ -305,7 +305,7 @@ uint32_t Usart::recv(char* buff, uint16_t bytes, uint32_t timeout)
     } else {
       if (timeout > 0) {
         if (delay >= timeout) {
-          rc |= BTR_USART_TIMEDOUT_ERR;
+          rc |= BTR_IO_TIMEDOUT_ERR;
           break;
         } else {
           // Wait and test queue one time after the delay.

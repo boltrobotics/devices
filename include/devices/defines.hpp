@@ -132,12 +132,13 @@ typedef enum
   INOUT
 } DirectionType;
 
-#define BTR_USART_NO_DATA       0x010000
-#define BTR_USART_OVERFLOW_ERR  0x020000
-#define BTR_USART_PARITY_ERR    0x040000
-#define BTR_USART_OVERRUN_ERR   0x080000
-#define BTR_USART_FRAME_ERR     0x100000
-#define BTR_USART_TIMEDOUT_ERR  0x110000
+#define BTR_IO_NO_DATA        0x00010000
+#define BTR_IO_OVERFLOW_ERR   0x00020000
+#define BTR_IO_PARITY_ERR     0x00040000
+#define BTR_IO_OVERRUN_ERR    0x00080000
+#define BTR_IO_FRAME_ERR      0x00100000
+#define BTR_IO_TIMEDOUT_ERR   0x00110000
+#define BTR_IO_NOTOPEN_ERR    0x00120000
 
 #if BTR_STM32 > 0
 
@@ -201,9 +202,10 @@ typedef enum
 #ifndef BTR_USART_IR_BUFF_SIZE
 #define BTR_USART_IR_BUFF_SIZE  16
 #endif
-#ifndef BTR_USART_CR_BUFF_SIZE
-#define BTR_USART_CR_BUFF_SIZE  64
-#endif
+/** USB doesn't work with lower values like 64 bytes. Keep it at 128. TODO look into it */
+//#ifndef BTR_USART_CR_BUFF_SIZE
+#define BTR_USART_CR_BUFF_SIZE  128
+//#endif
 
 #ifndef BTR_USART_USE_2X
 #define BTR_USART_USE_2X        1

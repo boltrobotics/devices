@@ -14,7 +14,9 @@
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// Static {
+// C
+
+extern "C" {
 
 #if BTR_USART0_ENABLED > 0
 static btr::Usart usart_0(
@@ -31,8 +33,6 @@ static btr::Usart usart_2(
   RCC_GPIOB, RCC_USART3, GPIOB, USART3, NVIC_USART3_IRQ, GPIO_USART3_TX, GPIO_USART3_RX,
   GPIO13, GPIO14);
 #endif
-
-extern "C" {
 
 static void txTask(void* arg)
 {

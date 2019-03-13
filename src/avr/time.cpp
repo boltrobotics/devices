@@ -7,7 +7,7 @@
 #include <time.h>
 
 // PROJECT INCLUDES
-#include "devices/avr/time.hpp"  // class implemented
+#include "devices/time.hpp"  // class implemented
 
 #if BTR_TIME_ENABLED > 0
 

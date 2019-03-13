@@ -32,7 +32,7 @@ namespace btr
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Time {
 
-#if BTR_AVR > 0 || BTR_ARD > 0
+#if BTR_STM32 > 0 || BTR_AVR > 0 || BTR_ARD > 0
 
 #ifndef BTR_TIME_ENABLED 
 #define BTR_TIME_ENABLED        1

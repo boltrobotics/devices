@@ -180,7 +180,7 @@ public:
   QueueHandle_t tx_q_;
 #endif
 
-  volatile uint8_t rx_error_;
+  volatile uint16_t rx_error_;
   bool enable_flush_;
 
 #if BTR_STM32 > 0 || BTR_AVR > 0

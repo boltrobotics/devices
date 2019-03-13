@@ -19,19 +19,57 @@
 extern "C" {
 
 #if BTR_USART0_ENABLED > 0
+
+#if BTR_USART0_CTS > 0
+#define CTS_PORT GPIO11
+#else
+#define CTS_PORT 0
+#endif
+
+#if BTR_USART0_RTS > 0
+#define RTS_PORT GPIO12
+#else
+#define RTS_PORT 0
+#endif
 static btr::Usart usart_0(
   RCC_GPIOA, RCC_USART1, GPIOA, USART1, NVIC_USART1_IRQ, GPIO_USART1_TX, GPIO_USART1_RX,
-  GPIO11, GPIO12);
+  CTS_PORT, RTS_PORT);
 #endif
+
 #if BTR_USART1_ENABLED > 0
+
+#if BTR_USART1_CTS > 0
+#define CTS_PORT GPIO0
+#else
+#define CTS_PORT 0
+#endif
+
+#if BTR_USART1_RTS > 0
+#define RTS_PORT GPIO1
+#else
+#define RTS_PORT 0
+#endif
 static btr::Usart usart_1(
   RCC_GPIOA, RCC_USART2, GPIOA, USART2, NVIC_USART2_IRQ, GPIO_USART2_TX, GPIO_USART2_RX,
-  GPIO0, GPIO1);
+  CTS_PORT, RTS_PORT);
 #endif
+
 #if BTR_USART2_ENABLED > 0
+
+#if BTR_USART2_CTS > 0
+#define CTS_PORT GPIO13
+#else
+#define CTS_PORT 0
+#endif
+
+#if BTR_USART2_RTS > 0
+#define RTS_PORT GPIO14
+#else
+#define RTS_PORT 0
+#endif
 static btr::Usart usart_2(
   RCC_GPIOB, RCC_USART3, GPIOB, USART3, NVIC_USART3_IRQ, GPIO_USART3_TX, GPIO_USART3_RX,
-  GPIO13, GPIO14);
+  CTS_PORT, RTS_PORT);
 #endif
 
 static void txTask(void* arg)
@@ -54,12 +92,14 @@ static void onRecv(btr::Usart* u)
 {
   while (USART_SR(u->pin_) & USART_SR_RXNE) {
     char ch = USART_DR(u->pin_);
-    uint32_t tail_next = (u->rx_tail_ + 1) % BTR_USART_RX_BUFF_SIZE;
+    uint16_t head_next = (u->rx_head_ + 1) % BTR_USART_RX_BUFF_SIZE;
 
-    // Save data if buffer has room, discard the data if there is no room.
-    if (tail_next != u->rx_head_) {
-      u->rx_buff_[u->rx_tail_] = ch;
-      u->rx_tail_ = tail_next;
+    // Save data if buffer has room, discard the data otherwise
+    if (head_next != u->rx_tail_) {
+      u->rx_buff_[u->rx_head_] = ch;
+      u->rx_head_ = head_next;
+    } else {
+      u->rx_error_ |= (BTR_IO_OVERFLOW_ERR >> 16);
     }
   }
   LED_TOGGLE();

@@ -7,5 +7,5 @@ find_package(Threads)
 
 setup_x86()
 find_srcs(FILTER ${MAIN_SRC})
-list(APPEND LIBS utility ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+list(APPEND LIBS ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 build_lib(SRCS ${SOURCES} LIBS ${LIBS})

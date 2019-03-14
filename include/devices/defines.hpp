@@ -20,10 +20,12 @@ namespace btr
 #include <avr/io.h>
 //! @endcond
 
+// BV was renamed to _BV. _BV is not in C standard. For portability, use old-style BV macro.
 #define BV(bit)                 (1 << bit)
 #define set_bit(sfr, bit)       (_SFR_BYTE(sfr) |= BV(bit))  // old sbi()
 #define clear_bit(sfr, bit)     (_SFR_BYTE(sfr) &= ~BV(bit)) // old cbi()
 #define toggle_bit(sfr, bit)    (_SFR_BYTE(sfr) ^= BV(bit))  
+#define set_reg(reg, val)       (reg = val)
 
 #endif // BTR_AVR > 0
 
@@ -100,6 +102,55 @@ namespace btr
 #endif // stm32, avr, ard
 
 // } LED
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// VL53L0X {
+
+/** When enabling VL53L0X, also enable BTR_I2C_ENABLED. */
+#ifndef BTR_VL53L0X_ENABLED
+#define BTR_VL53L0X_ENABLED         0
+#endif
+#ifndef BTR_VL53LOX_ADDR_DFLT
+#define BTR_VL53LOX_ADDR_DFLT       0b0101001
+#endif
+#ifndef BTR_VL53LOX_COMPENSATE_MM
+#define BTR_VL53LOX_COMPENSATE_MM   -10
+#endif
+#ifndef BTR_VL53LOX_TIMEOUT_MS
+#define BTR_VL53LOX_TIMEOUT_MS      100
+#endif
+#ifndef BTR_VL53LOX_LIMIT_MCPS_MIN
+#define BTR_VL53LOX_LIMIT_MCPS_MIN  0
+#endif
+#ifndef BTR_VL53LOX_LIMIT_MCPS_MAX
+#define BTR_VL53LOX_LIMIT_MCPS_MAX  511.99
+#endif
+
+/** Decode VCSEL (vertical cavity surface emitting laser) pulse period in PCLKs from register. */
+#define BTR_VL53L0X_DECODE_VCSEL(val) (((val) + 1) << 1)
+/** Encode VCSEL pulse period register value from period in PCLKs. */
+#define BTR_VL53L0X_ENCODE_VCSEL(val) (((val) >> 1) - 1)
+/** Calculate macro period in *nanoseconds* from VCSEL period in PCLKs.
+ * PLL_period_ps = 1655; macro_period_vclks = 2304. */
+#define BTR_VL53L0X_CALC_PERIOD(val) ((((uint32_t) 2304 * (val) * 1655) + 500) / 1000)
+
+// } VL53L0X
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// I2C {
+
+#ifndef BTR_I2C_ENABLED
+#define BTR_I2C_ENABLED             0
+#endif
+#ifndef BTR_I2C_IO_TIMEOUT_MS
+#define BTR_I2C_IO_TIMEOUT_MS       100
+#endif
+
+#define SLA_W(address)              (address << 1)
+#define SLA_R(address)              ((address << 1) + 0x01)
+
+// } I2C
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // USART {

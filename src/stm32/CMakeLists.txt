@@ -6,6 +6,8 @@ include(stm32_project)
 
 setup_stm32()
 
+set(UTILITY_HOME $ENV{UTILITY_HOME})
+include_directories(${UTILITY_HOME}/include)
 include(libopencm3)
 include_directories(${libopencm3_INC_DIR})
 include(freertos)

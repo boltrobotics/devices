@@ -2,7 +2,7 @@
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
 // PROJECT INCLUDES
-#include "devices/avr/i2c.hpp"  // class implemented
+#include "devices/i2c.hpp"  // class implemented
 #include "devices/time.hpp"
 
 // SYSTEM INCLDUES
@@ -14,20 +14,20 @@
 namespace btr
 {
 
+uint8_t I2C::buff_[sizeof(uint64_t)] = { 0 };
+
 /////////////////////////////////////////////// PUBLIC /////////////////////////////////////////////
 
 //============================================= LIFECYCLE ==========================================
 
 //============================================= OPERATIONS =========================================
 
-void I2C::init(uint32_t new_timeout)
+void I2C::init()
 {
-  timeout(&new_timeout);
-
   //setPullups(true);
-  setSpeed(false);
+  setSpeed(BTR_I2C_FAST_SPEED);
 
-  // Enable TWI operation and interface
+  // Enable TWI operation and interface.
   set_reg(TWCR, BV(TWEN) | BV(TWEA));
 }
 
@@ -35,16 +35,6 @@ void I2C::shutdown()
 {
   // Switch off TWI and terminate all ongoing transmissions
   set_reg(TWCR, 0);
-}
-
-uint32_t I2C::timeout(uint32_t* new_timeout)
-{
-  static uint32_t timeout = BTR_I2C_IO_TIMEOUT_MS;
-
-  if (new_timeout != nullptr) {
-    timeout = *new_timeout;
-  }
-  return timeout;
 }
 
 void I2C::setPullups(bool activate)
@@ -86,11 +76,11 @@ uint8_t I2C::scan(uint8_t* device_count)
   uint8_t result = SUCCESS;
   *device_count = 0;
 
-  for (uint8_t s = 0; s <= 0x0; s++) {
+  for (uint8_t s = 0; s < 128; s++) {
     result = start();
 
     if (SUCCESS == result) {
-      result = sendAddress(SLA_W(s));
+      result = sendAddress(BTR_I2C_WRITE_ADDR(s));
 
       if (SUCCESS == result) {
         (*device_count)++;
@@ -110,7 +100,7 @@ uint8_t I2C::write(uint8_t addr, uint8_t reg)
   uint8_t result = start();
 
   if (SUCCESS == result) {
-    result = sendAddress(SLA_W(addr));
+    result = sendAddress(BTR_I2C_WRITE_ADDR(addr));
 
     if (SUCCESS == result) {
       result = sendByte(reg);
@@ -125,7 +115,7 @@ uint8_t I2C::write(uint8_t addr, uint8_t reg, const uint8_t* buff, uint8_t count
   uint8_t result = start();
 
   if (SUCCESS == result) {
-    result = sendAddress(SLA_W(addr));
+    result = sendAddress(BTR_I2C_WRITE_ADDR(addr));
 
     if (SUCCESS == result) {
       result = sendByte(reg);
@@ -145,12 +135,12 @@ uint8_t I2C::write(uint8_t addr, uint8_t reg, const uint8_t* buff, uint8_t count
   return result;
 }
 
-uint8_t I2C::read(uint8_t addr, uint8_t* buff, uint8_t count, bool with_reg)
+uint8_t I2C::read(uint8_t sid, uint8_t* buff, uint8_t count, bool stop_comm)
 {
   uint8_t result = start();
 
   if (SUCCESS == result) {
-    result = sendAddress(SLA_R(addr));
+    result = sendAddress(BTR_I2C_READ_ADDR(sid));
 
     if (SUCCESS == result) {
       if (count == 0) {
@@ -187,25 +177,25 @@ uint8_t I2C::read(uint8_t addr, uint8_t* buff, uint8_t count, bool with_reg)
       } // for loop
     } // sendAddress
 
-    if (!with_reg) {
+    if (stop_comm) {
       stop();
     }
   } // start
   return result;
 }
 
-uint8_t I2C::read(uint8_t addr, uint8_t reg, uint8_t* buff, uint8_t count)
+uint8_t I2C::read(uint8_t sid, uint8_t reg, uint8_t* buff, uint8_t count)
 {
   uint8_t result = start();
 
   if (SUCCESS == result) {
-    result = sendAddress(SLA_W(addr));
+    result = sendAddress(BTR_I2C_WRITE_ADDR(sid));
 
     if (SUCCESS == result) {
       result = sendByte(reg);
 
       if (SUCCESS == result) {
-        result = read(addr, buff, count, true);
+        result = read(sid, buff, count, false);
       }
     }
     stop();
@@ -242,11 +232,11 @@ uint8_t I2C::stop()
   uint8_t result = SUCCESS;
   set_reg(TWCR, BV(TWINT) | BV(TWEN) | BV(TWSTO));
 
-  if (timeout() > 0) {
-    uint32_t begin_time = Time::millis();
+  if (BTR_I2C_IO_TIMEOUT_MS > 0) {
+    uint32_t start_ms = Time::millis();
 
     while (bit_is_set(TWCR, TWSTO)) {
-      if ((Time::millis() - begin_time) >= timeout()) {
+      if ((Time::millis() - start_ms) >= BTR_I2C_IO_TIMEOUT_MS) {
         result = TIMEOUT;
         reset();
         break;
@@ -255,7 +245,6 @@ uint8_t I2C::stop()
   } else {
     loop_until_bit_is_clear(TWCR, TWSTO);
   }
-
   return result;
 }
 
@@ -333,12 +322,12 @@ uint8_t I2C::receiveByte(bool ack, uint8_t* value)
     if (ack) {
       if (TW_MR_DATA_ACK != TW_STATUS) {
         result = TW_STATUS;
-        *value = 0x0;
+        *value = 0;
       }
     } else {
       if (TW_MR_DATA_NACK != TW_STATUS) {
         result = TW_STATUS;
-        *value = 0x0;
+        *value = 0;
       }
     }
   }
@@ -349,11 +338,11 @@ uint8_t I2C::waitCompletion()
 {
   uint8_t result = SUCCESS;
 
-  if (timeout() > 0) {
-    uint32_t begin_time = Time::millis();
+  if (BTR_I2C_IO_TIMEOUT_MS > 0) {
+    uint32_t start_ms = Time::millis();
 
     while (bit_is_clear(TWCR, TWINT)) {
-      if ((Time::millis() - begin_time) >= timeout()) {
+      if ((Time::millis() - start_ms) >= BTR_I2C_IO_TIMEOUT_MS) {
         result = TIMEOUT;
         reset();
         break;

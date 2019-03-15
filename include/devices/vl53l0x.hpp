@@ -9,6 +9,9 @@
 // PROJECT INCLDUES
 #include "devices/defines.hpp"
 
+namespace btr
+{
+
 /**
  * The class provides an interface to VL53L0X device.
  *
@@ -338,23 +341,83 @@ private:
 
 // OPERATIONS
 
+  /**
+   * Get reference SPAD (single photon avalanche diode) count and type, but only gets reference
+   * SPAD count and type.
+   *
+   * @param count
+   * @param type_is_aperture
+   * @return spad info
+   */
   bool getSpadInfo(uint8_t * count, bool * type_is_aperture);
 
-  void getSequenceStepEnables(SequenceStepEnables * enables);
-  void getSequenceStepTimeouts(SequenceStepEnables const * enables, SequenceStepTimeouts * timeouts);
+  /**
+   * Get sequence step enables.
+   *
+   * @param enables
+   */
+  void getSequenceStepEnables(SequenceStepEnables* enables);
 
-  bool performSingleRefCalibration(uint8_t vhv_init_byte);
+  /**
+   * Get sequence step timeouts.
+   * Gets all timeouts instead of just the requested one, and also stores intermediate values
+   *
+   * @param enables
+   * @param timeouts
+   */
+  void getSequenceStepTimeouts(SequenceStepEnables const* enables, SequenceStepTimeouts* timeouts);
 
+  /**
+   * Decode sequence step timeout in MCLKs from register value.
+   *
+   * Note: the original function returned a uint32_t, but the return value is always stored
+   * in a uint16_t.
+   *
+   * @param value - timeout
+   */
   static uint16_t decodeTimeout(uint16_t value);
+
+  /**
+   * Encode sequence step timeout register value from timeout in MCLKs.
+   *
+   * @param timeout_mclks
+   * @return timeout
+   */
   static uint16_t encodeTimeout(uint16_t timeout_mclks);
+
+  /**
+   * Convert sequence step timeout from MCLKs to microseconds with given VCSEL period in PCLKs.
+   *
+   * @param timeout_period_mclks
+   * @param vcsel_period_pclks
+   * @return microseconds
+   */
   static uint32_t timeoutMclksToMicroseconds(uint16_t timeout_period_mclks, uint8_t vcsel_period_pclks);
+
+  /**
+   * Convert sequence step timeout from microseconds to MCLKs with given VCSEL period in PCLKs.
+   *
+   * @param timeout_period_us
+   * @param vcsel_period_pclks
+   * @return mclks
+   */
   static uint32_t timeoutMicrosecondsToMclks(uint32_t timeout_period_us, uint8_t vcsel_period_pclks);
+
+  /**
+   * Perform calibration.
+   *
+   * @param vhv_init_byte
+   */
+  bool performSingleRefCalibration(uint8_t vhv_init_byte);
 
 // ATTRIBUTES
 
-  uint8_t addr_;
+  /** Slave ID. */
+  uint8_t sid_;
   uint8_t stop_var_;
   uint32_t timing_budget_us_;
 };
+
+} // namespace btr
 
 #endif // _btr_VL53L0X_hpp_

@@ -5,7 +5,6 @@
 #define _btr_I2C_hpp_
 
 // SYSTEM INCLUDES
-#include <inttypes.h>
 
 // PROJECT INCLUDES
 #include "devices/defines.hpp"
@@ -40,19 +39,12 @@ public:
   /**
    * Set pull-up resistors high, speed slow, and enable TWI.
    */
-  static void init(uint32_t timeout);
+  static void init();
 
   /**
    * Disable TWI.
    */
   static void shutdown();
-
-  /**
-   * Set/get timeout.
-   *
-   * @param timeout - timeout in milliseconds
-   */
-  static uint32_t timeout(uint32_t* timeout = nullptr);
 
   /**
    * Activate or deactivate internal pull-up resistors.
@@ -110,26 +102,37 @@ public:
   /**
    * Read multi-byte value.
    *
-   * @param addr - the address of a device to send the data to
+   * @param sid - slave id
    * @param buff - the buffer to store the data to
    * @param count - the number of bytes in buff
-   * @param with_reg - the function is called from read() with reg parameter, so do not call
-   *  stop() at then read end.
+   * @param stop_comm - if true, stop i2c communication once the data is read. If false, do NOT
+   *  stop the communication. The reasons is that the read operation started elsewhere (other
+   *  read() function, in which case that function will call stop instead.
    * @return one of STATUS_CODE or system value between 0x8 and 0xFF
-   *
    */
-  static uint8_t read(uint8_t addr, uint8_t* buff, uint8_t count, bool with_reg);
+  static uint8_t read(uint8_t sid, uint8_t* buff, uint8_t count, bool stop_comm = true);
 
   /**
    * Read multi-byte value from a specific register.
    *
-   * @param addr - address of a device to send the data to
+   * @param sid - slave id
    * @param reg - register to read from
    * @param buff - buffer to store the data in
    * @param count - number of bytes to read
    * @return one of STATUS_CODE or system value between 0x8 and 0xFF
    */
-  static uint8_t read(uint8_t addr, uint8_t reg, uint8_t* buff, uint8_t count);
+  static uint8_t read(uint8_t sid, uint8_t reg, uint8_t* buff, uint8_t count);
+
+  /**
+   * Read multi-byte integer from a given register.
+   *
+   * @param sid - slave ID
+   * @param reg - register to read from
+   * @param val - value to store received data to
+   * @return one of STATUS_CODE or system value between 0x8 and 0xFF
+   */
+  template<typename T>
+  static uint8_t read(uint8_t sid, uint8_t reg, T* val);
 
 private:
 
@@ -143,6 +146,10 @@ private:
   static uint8_t receiveByte(bool ack);
   static uint8_t receiveByte(bool ack, uint8_t* target);
   static uint8_t waitCompletion();
+
+// ATTRIBUTES
+
+  static uint8_t buff_[sizeof(uint64_t)];
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -154,7 +161,15 @@ private:
 //============================================= OPERATIONS =========================================
 
 template<typename T>
-uint8_t I2C::write(uint8_t addr, uint8_t reg, T value)
+inline uint8_t I2C::read(uint8_t sid, uint8_t reg, T* val)
+{
+  int rc = I2C::read(sid, reg, buff_, sizeof(T));
+  ValueCodec::decodeFixedInt(buff_, val, sizeof(T), BTR_I2C_MSB_FIRST);
+  return rc;
+}
+
+template<typename T>
+inline uint8_t I2C::write(uint8_t addr, uint8_t reg, T value)
 {
   if (sizeof(T) > 1 && ValueCodec::isLittleEndian()) {
     ValueCodec::swap(&value);

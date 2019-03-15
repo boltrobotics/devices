@@ -118,7 +118,10 @@ namespace btr
 #define BTR_VL53LOX_COMPENSATE_MM   -10
 #endif
 #ifndef BTR_VL53LOX_TIMEOUT_MS
-#define BTR_VL53LOX_TIMEOUT_MS      100
+#define BTR_VL53LOX_TIMEOUT_MS      50
+#endif
+#ifndef BTR_VL53LOX_BUDGET_US
+#define BTR_VL53LOX_BUDGET_US       32000
 #endif
 #ifndef BTR_VL53LOX_LIMIT_MCPS_MIN
 #define BTR_VL53LOX_LIMIT_MCPS_MIN  0
@@ -146,9 +149,17 @@ namespace btr
 #ifndef BTR_I2C_IO_TIMEOUT_MS
 #define BTR_I2C_IO_TIMEOUT_MS       100
 #endif
+/** Wehn set to 1, bus speed is set to 400kHz, otherwise bus speed is set to 100kHz. */
+#ifndef BTR_I2C_FAST_SPEED
+#define BTR_I2C_FAST_SPEED          0
+#endif
+/** When set to 1, numeric values on I2C bus are transmitted using most-significant byte first. */
+#ifndef BTR_I2C_MSB_FIRST
+#define BTR_I2C_MSB_FIRST           1
+#endif
 
-#define SLA_W(address)              (address << 1)
-#define SLA_R(address)              ((address << 1) + 0x01)
+#define BTR_I2C_WRITE_ADDR(addr)    (addr << 1)
+#define BTR_I2C_READ_ADDR(addr)     ((addr << 1) + 0x01)
 
 // } I2C
 

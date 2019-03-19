@@ -4,17 +4,18 @@
 // PROJECT INCLUDES
 #include "devices/i2c.hpp"  // class implemented
 #include "devices/time.hpp"
+#include "i2c_private.hpp"
 
 // SYSTEM INCLDUES
 #include <util/twi.h>
 #include <util/delay.h>
 
-#if BTR_I2C_ENABLED > 0
+#if BTR_I2C0_ENABLED > 0
 
 namespace btr
 {
 
-uint8_t I2C::buff_[sizeof(uint64_t)] = { 0 };
+static I2C i2c_0(0);
 
 /////////////////////////////////////////////// PUBLIC /////////////////////////////////////////////
 
@@ -22,7 +23,18 @@ uint8_t I2C::buff_[sizeof(uint64_t)] = { 0 };
 
 //============================================= OPERATIONS =========================================
 
-void I2C::init()
+// static
+I2C* I2C::instance(uint32_t dev_id, bool open)
+{
+  (void) dev_id;
+
+  if (open) {
+    i2c_0.open();
+  }
+  return &i2c_0;
+}
+
+void I2C::open()
 {
   //setPullups(true);
   setSpeed(BTR_I2C_FAST_SPEED);
@@ -31,11 +43,20 @@ void I2C::init()
   set_reg(TWCR, BV(TWEN) | BV(TWEA));
 }
 
-void I2C::shutdown()
+void I2C::close()
 {
   // Switch off TWI and terminate all ongoing transmissions
   set_reg(TWCR, 0);
 }
+
+/////////////////////////////////////////////// PROTECTED //////////////////////////////////////////
+
+//============================================= OPERATIONS =========================================
+
+
+/////////////////////////////////////////////// PRIVATE ////////////////////////////////////////////
+
+//============================================= OPERATIONS =========================================
 
 void I2C::setPullups(bool activate)
 {
@@ -71,173 +92,55 @@ void I2C::setSpeed(bool fast)
   set_reg(TWBR, ((F_CPU / scaler) - 16) / 2);
 }
 
-uint8_t I2C::scan(uint8_t* device_count)
-{
-  uint8_t result = SUCCESS;
-  *device_count = 0;
-
-  for (uint8_t s = 0; s < 128; s++) {
-    result = start();
-
-    if (SUCCESS == result) {
-      result = sendAddress(BTR_I2C_WRITE_ADDR(s));
-
-      if (SUCCESS == result) {
-        (*device_count)++;
-      } else {
-        break;
-      }
-    } else {
-      break;
-    }
-    stop();
-  }
-  return result;
-}
-
-uint8_t I2C::write(uint8_t addr, uint8_t reg)
-{
-  uint8_t result = start();
-
-  if (SUCCESS == result) {
-    result = sendAddress(BTR_I2C_WRITE_ADDR(addr));
-
-    if (SUCCESS == result) {
-      result = sendByte(reg);
-    }
-    stop();
-  }
-  return result;
-}
-
-uint8_t I2C::write(uint8_t addr, uint8_t reg, const uint8_t* buff, uint8_t count)
-{
-  uint8_t result = start();
-
-  if (SUCCESS == result) {
-    result = sendAddress(BTR_I2C_WRITE_ADDR(addr));
-
-    if (SUCCESS == result) {
-      result = sendByte(reg);
-
-      if (SUCCESS == result) {
-        for (uint8_t i = 0; i < count; i++) {
-          result = sendByte(buff[i]);
-
-          if (SUCCESS != result) {
-            break;
-          }
-        }
-      }
-    } // sendAddress
-    stop();
-  }
-  return result;
-}
-
-uint8_t I2C::read(uint8_t sid, uint8_t* buff, uint8_t count, bool stop_comm)
-{
-  uint8_t result = start();
-
-  if (SUCCESS == result) {
-    result = sendAddress(BTR_I2C_READ_ADDR(sid));
-
-    if (SUCCESS == result) {
-      if (count == 0) {
-        count++;
-      }
-
-      uint8_t nack = count - 1;
-
-      for (uint8_t i = 0; i < count; i++) {
-        if (i == nack) {
-          result = receiveByte(false);
-
-          if (SUCCESS == result) {
-            if (TW_MR_DATA_NACK != TW_STATUS) {
-              result = TW_STATUS;
-              break;
-            }
-          } else {
-            break;
-          }
-        } else {
-          result = receiveByte(true);
-
-          if (SUCCESS == result) {
-            if (TW_MR_DATA_ACK != TW_STATUS) {
-              result = TW_STATUS;
-              break;
-            }
-          } else {
-            break;
-          }
-        }
-        buff[i] = TWDR;
-      } // for loop
-    } // sendAddress
-
-    if (stop_comm) {
-      stop();
-    }
-  } // start
-  return result;
-}
-
-uint8_t I2C::read(uint8_t sid, uint8_t reg, uint8_t* buff, uint8_t count)
-{
-  uint8_t result = start();
-
-  if (SUCCESS == result) {
-    result = sendAddress(BTR_I2C_WRITE_ADDR(sid));
-
-    if (SUCCESS == result) {
-      result = sendByte(reg);
-
-      if (SUCCESS == result) {
-        result = read(sid, buff, count, false);
-      }
-    }
-    stop();
-  }
-  return result;
-}
-
-/////////////////////////////////////////////// PROTECTED //////////////////////////////////////////
-
-//============================================= OPERATIONS =========================================
-
-
-/////////////////////////////////////////////// PRIVATE ////////////////////////////////////////////
-
-//============================================= OPERATIONS =========================================
-
-uint8_t I2C::start()
+uint32_t I2C::start(uint8_t addr, uint8_t rw)
 {
   set_reg(TWCR, BV(TWINT) | BV(TWSTA) | BV(TWEN));
+  uint32_t rc = waitBusy();
 
-  uint8_t result = waitCompletion();
-
-  if (SUCCESS == result) {
+  if (BTR_IO_OK(rc)) {
     if (TW_MT_ARB_LOST == TW_STATUS) {
-      result = TW_STATUS;
+      rc = BTR_IO_ESTART;
       reset();
+      return rc;
+    }
+
+    uint8_t addr_rw = 0;
+
+    if (BTR_I2C_READ == rw) {
+      addr_rw = BTR_I2C_READ_ADDR(addr);
+    } else {
+      addr_rw = BTR_I2C_WRITE_ADDR(addr);
+    }
+
+    set_reg(TWDR, addr_rw);
+    set_reg(TWCR, BV(TWINT) | BV(TWEN));
+
+    uint32_t rc = waitBusy();
+
+    if (BTR_IO_OK(rc)) {
+      if (TW_MT_SLA_NACK == TW_STATUS || TW_MR_SLA_NACK == TW_STATUS) {
+        rc = BTR_IO_ENOACK;
+        stop();
+      } else if ((TW_MT_SLA_ACK != TW_STATUS) && (TW_MR_SLA_ACK != TW_STATUS)) {
+        rc = BTR_IO_ESTART;
+        reset();
+      }
     }
   }
-  return result;
+  return rc;
 }
 
-uint8_t I2C::stop()
+uint32_t I2C::stop()
 {
-  uint8_t result = SUCCESS;
+  uint32_t rc = BTR_IO_ENOERR;
   set_reg(TWCR, BV(TWINT) | BV(TWEN) | BV(TWSTO));
 
   if (BTR_I2C_IO_TIMEOUT_MS > 0) {
     uint32_t start_ms = Time::millis();
 
     while (bit_is_set(TWCR, TWSTO)) {
-      if ((Time::millis() - start_ms) >= BTR_I2C_IO_TIMEOUT_MS) {
-        result = TIMEOUT;
+      if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
+        rc = BTR_IO_ETIMEOUT;
         reset();
         break;
       }
@@ -245,105 +148,70 @@ uint8_t I2C::stop()
   } else {
     loop_until_bit_is_clear(TWCR, TWSTO);
   }
-  return result;
+  return rc;
 }
 
-void I2C::reset()
+uint32_t I2C::sendByte(uint8_t val)
 {
-  // Re-initialize TWI
-  shutdown();
-  set_reg(TWCR, BV(TWEN) | BV(TWEA));
-}
-
-uint8_t I2C::sendAddress(uint8_t value)
-{
-  set_reg(TWDR, value);
+  set_reg(TWDR, val);
   set_reg(TWCR, BV(TWINT) | BV(TWEN));
 
-  uint8_t result = waitCompletion();
+  uint32_t rc = waitBusy();
 
-  if (SUCCESS == result) {
-    if (TW_MT_SLA_NACK == TW_STATUS || TW_MR_SLA_NACK == TW_STATUS) {
-      result = TW_STATUS;
-      stop();
-    } else if ((TW_MT_SLA_ACK != TW_STATUS) && (TW_MR_SLA_ACK != TW_STATUS)) {
-      result = TW_STATUS;
-      reset();
-    }
-  }
-  return result;
-}
-
-uint8_t I2C::sendByte(uint8_t value)
-{
-  set_reg(TWDR, value);
-  set_reg(TWCR, BV(TWINT) | BV(TWEN));
-
-  uint8_t result = waitCompletion();
-
-  if (SUCCESS == result) {
+  if (BTR_IO_OK(rc)) {
     if (TW_MT_DATA_NACK == TW_STATUS) {
-      result = TW_STATUS;
+      rc = BTR_IO_ESENDBYTE;
       stop();
     } else if (TW_MT_DATA_ACK != TW_STATUS) {
-      result = TW_STATUS;
+      rc = BTR_IO_ESENDBYTE;
       reset();
     }
   }
-  return result;
+  return rc;
 }
 
-uint8_t I2C::receiveByte(bool ack)
+uint32_t I2C::receiveByte(bool expect_ack, uint8_t* val)
 {
   set_reg(TWCR, BV(TWINT) | BV(TWEN));
 
-  if (ack) {
+  if (expect_ack) {
     set_reg(TWCR, TWCR | BV(TWEA));
   }
 
-  uint8_t result = waitCompletion();
+  uint32_t rc = waitBusy();
 
-  if (SUCCESS == result) {
+  if (BTR_IO_OK(rc)) {
     if (TW_MT_ARB_LOST == TW_STATUS) {
-      result = TW_STATUS;
+      rc = BTR_IO_ERECVBYTE;
       reset();
+      return rc;
     }
   }
-  return result;
-}
 
-uint8_t I2C::receiveByte(bool ack, uint8_t* value)
-{
-  uint8_t result = I2C::receiveByte(ack);
+  *val = TWDR;
 
-  if (SUCCESS == result) {
-    *value = TWDR;
-
-    if (ack) {
-      if (TW_MR_DATA_ACK != TW_STATUS) {
-        result = TW_STATUS;
-        *value = 0;
-      }
-    } else {
-      if (TW_MR_DATA_NACK != TW_STATUS) {
-        result = TW_STATUS;
-        *value = 0;
-      }
+  if (expect_ack) {
+    if (TW_MR_DATA_ACK != TW_STATUS) {
+      rc = BTR_IO_ENOACK;
+    }
+  } else {
+    if (TW_MR_DATA_NACK != TW_STATUS) {
+      rc = BTR_IO_ENONACK;
     }
   }
-  return result;
+  return rc;
 }
 
-uint8_t I2C::waitCompletion()
+uint32_t I2C::waitBusy()
 {
-  uint8_t result = SUCCESS;
+  uint32_t rc = BTR_IO_ENOERR;
 
   if (BTR_I2C_IO_TIMEOUT_MS > 0) {
     uint32_t start_ms = Time::millis();
 
     while (bit_is_clear(TWCR, TWINT)) {
-      if ((Time::millis() - start_ms) >= BTR_I2C_IO_TIMEOUT_MS) {
-        result = TIMEOUT;
+      if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
+        rc = BTR_IO_ETIMEOUT;
         reset();
         break;
       }
@@ -351,9 +219,9 @@ uint8_t I2C::waitCompletion()
   } else {
     loop_until_bit_is_set(TWCR, TWINT);
   }
-  return result;
+  return rc;
 }
 
 } // namespace btr
 
-#endif // BTR_I2C_ENABLED > 0
+#endif // BTR_I2C0_ENABLED > 0

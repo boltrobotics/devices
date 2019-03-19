@@ -3,6 +3,9 @@
 
 // Based on code by Pololu.
 
+// SYSTEM INCLUDES
+#include <stddef.h>
+
 // PROJECT INCLDUES
 #include "devices/vl53l0x.hpp"
 #include "devices/i2c.hpp"
@@ -13,11 +16,9 @@
 namespace btr
 {
 
-// Record the current time to check an upcoming timeout against.
-#define REC_TIME() (tm = Time::millis())
-
 // Check if timeout is enabled (set to nonzero value) and has expired
-#define TIMED_OUT() (BTR_VL53LOX_TIMEOUT_MS > 0 && (Time::millis() - tm) > BTR_VL53LOX_TIMEOUT_MS)
+#define IS_TIMEOUT(tm) \
+  (BTR_VL53LOX_TIMEOUT_MS > 0 && ((Time::millis() - tm) > BTR_VL53LOX_TIMEOUT_MS))
 
 /////////////////////////////////////////////// PUBLIC /////////////////////////////////////////////
 
@@ -26,7 +27,7 @@ namespace btr
 VL53L0X::VL53L0X()
   :
     status_(0),
-    sid_(BTR_VL53LOX_ADDR_DFLT),
+    addr_(BTR_VL53LOX_ADDR_DFLT),
     stop_var_(0),
     timing_budget_us_(0)
 {
@@ -39,8 +40,8 @@ bool VL53L0X::init(bool io_2v8)
   // Sensor uses 1V8 mode for I/O by default.
 
   if (io_2v8) {
-    writeReg(VHV_CONFIG_PAD_SCL_SDA__EXTSUP_HV,
-      readReg(VHV_CONFIG_PAD_SCL_SDA__EXTSUP_HV) | 0x01); // set bit 0
+    uint8_t v = readReg(VHV_CONFIG_PAD_SCL_SDA__EXTSUP_HV);
+    writeReg(VHV_CONFIG_PAD_SCL_SDA__EXTSUP_HV, (v | 0x01)); // set bit 0
   }
 
   // Set I2C standard mode.
@@ -225,63 +226,71 @@ bool VL53L0X::init(bool io_2v8)
   return true;
 }
 
-void VL53L0X::setAddress(uint8_t new_addr)
+void VL53L0X::setAddress(uint8_t addr)
 {
-  sid_ = new_addr;
-  writeReg(I2C_SLAVE_DEVICE_ADDRESS, sid_ & 0x7F);
+  addr_ = addr;
+  writeReg(I2C_SLAVE_DEVICE_ADDRESS, addr_ & 0x7F);
 }
 
 uint8_t VL53L0X::getAddress()
 { 
-  return sid_; 
+  return addr_; 
 }
 
 void VL53L0X::writeReg(uint8_t reg, uint8_t value)
 {
-  status_ = I2C::write(sid_, reg, value);
+  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
+  status_ = i2c->write(addr_, reg, value);
 }
 
 void VL53L0X::writeReg16Bit(uint8_t reg, uint16_t value)
 {
   uint8_t* buff = reinterpret_cast<uint8_t*>(&value);
-  status_ = I2C::write(sid_, reg, buff, sizeof(value));
+  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
+  status_ = i2c->write(addr_, reg, buff, sizeof(value));
 }
 
 void VL53L0X::writeReg32Bit(uint8_t reg, uint32_t value)
 {
   uint8_t* buff = reinterpret_cast<uint8_t*>(&value);
-  status_ = I2C::write(sid_, reg, buff, sizeof(value));
+  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
+  status_ = i2c->write(addr_, reg, buff, sizeof(value));
 }
 
 uint8_t VL53L0X::readReg(uint8_t reg)
 {
-  uint8_t value;
-  status_ = I2C::read(sid_, reg, &value);
+  uint8_t value = 0;
+  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
+  status_ = i2c->read(addr_, reg, &value);
   return value;
 }
 
 uint16_t VL53L0X::readReg16Bit(uint8_t reg)
 {
-  uint16_t value;
-  status_ = I2C::read(sid_, reg, &value);
+  uint16_t value = 0;
+  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
+  status_ = i2c->read(addr_, reg, &value);
   return value;
 }
 
 uint32_t VL53L0X::readReg32Bit(uint8_t reg)
 {
-  uint32_t value;
-  status_ = I2C::read(sid_, reg, &value);
+  uint32_t value = 0;
+  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
+  status_ = i2c->read(addr_, reg, &value);
   return value;
 }
 
 void VL53L0X::writeMulti(uint8_t reg, uint8_t* src, uint8_t count)
 {
-  status_ = I2C::write(sid_, reg, src, count);
+  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
+  status_ = i2c->write(addr_, reg, src, count);
 }
 
 void VL53L0X::readMulti(uint8_t reg, uint8_t* dst, uint8_t count)
 {
-  status_ = I2C::read(sid_, reg, dst, count);
+  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
+  status_ = i2c->read(addr_, reg, dst, count);
 }
 
 bool VL53L0X::setSignalRateLimit(float limit_mcps)
@@ -603,18 +612,16 @@ void VL53L0X::stopContinuous()
 
 uint16_t VL53L0X::readRangeContinuousMillimeters()
 {
-  uint32_t tm;
-  REC_TIME();
+  uint32_t tm = Time::millis();
 
   while ((readReg(RESULT_INTERRUPT_STATUS) & 0x07) == 0) {
-    if (TIMED_OUT()) {
+    if (IS_TIMEOUT(tm)) {
       status_ |= (uint16_t(1) << 8);
       return UINT16_MAX;
     }
   }
 
-  // assumptions: Linearity Corrective Gain is 1000 (default);
-  // fractional ranging is not enabled
+  // Assumptions: Linearity Corrective Gain is 1000 (default). Fractional ranging is not enabled.
   uint16_t range = readReg16Bit(RESULT_RANGE_STATUS + 10);
   writeReg(SYSTEM_INTERRUPT_CLEAR, 0x01);
   return (range + BTR_VL53LOX_COMPENSATE_MM);
@@ -629,15 +636,13 @@ uint16_t VL53L0X::readRangeSingleMillimeters()
   writeReg(0x00, 0x01);
   writeReg(0xFF, 0x00);
   writeReg(0x80, 0x00);
-
   writeReg(SYSRANGE_START, 0x01);
 
-  // "Wait until start bit has been cleared"
-  uint32_t tm;
-  REC_TIME();
+  uint32_t tm = Time::millis();
 
+  // Wait until start bit has been cleared.
   while (readReg(SYSRANGE_START) & 0x01) {
-    if (TIMED_OUT()) {
+    if (IS_TIMEOUT(tm)) {
       status_ |= (uint16_t(1) << 8);
       return UINT16_MAX;
     }
@@ -674,11 +679,10 @@ bool VL53L0X::getSpadInfo(uint8_t * count, bool * type_is_aperture)
   writeReg(0x94, 0x6b);
   writeReg(0x83, 0x00);
 
-  uint32_t tm;
-  REC_TIME();
+  uint32_t tm = Time::millis();
 
   while (readReg(0x83) == 0x00) {
-    if (TIMED_OUT()) {
+    if (IS_TIMEOUT(tm)) {
       return false;
     }
   }
@@ -784,11 +788,10 @@ bool VL53L0X::performSingleRefCalibration(uint8_t vhv_init_byte)
   // VL53L0X_REG_SYSRANGE_MODE_START_STOP
   writeReg(SYSRANGE_START, 0x01 | vhv_init_byte);
 
-  uint32_t tm;
-  REC_TIME();
+  uint32_t tm = Time::millis();
 
   while ((readReg(RESULT_INTERRUPT_STATUS) & 0x07) == 0) {
-    if (TIMED_OUT()) {
+    if (IS_TIMEOUT(tm)) {
       return false; 
     }
   }

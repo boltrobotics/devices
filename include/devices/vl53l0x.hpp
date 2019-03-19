@@ -412,8 +412,8 @@ private:
 
 // ATTRIBUTES
 
-  /** Slave ID. */
-  uint8_t sid_;
+  /** Slave address. */
+  uint8_t addr_;
   uint8_t stop_var_;
   uint32_t timing_budget_us_;
 };

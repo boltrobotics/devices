@@ -1,0 +1,238 @@
+// Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
+// License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+
+// SYSTEM INCLDUES
+#include <cstddef>
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/timer.h>
+#include <libopencm3/cm3/nvic.h>
+
+// PROJECT INCLUDES
+#include "devices/i2c.hpp"  // class implemented
+#include "i2c_private.hpp"
+#include "devices/time.hpp"
+#include "FreeRTOS.h"
+#include "task.h"
+
+#if BTR_I2C0_ENABLED > 0 || BTR_I2C1_ENABLED > 0
+
+namespace btr
+{
+
+#if BTR_I2C0_ENABLED > 0
+static I2C i2c_0(I2C1);
+#endif
+#if BTR_I2C1_ENABLED > 0
+static I2C i2c_1(I2C2);
+#endif
+
+/////////////////////////////////////////////// PUBLIC /////////////////////////////////////////////
+
+//============================================= LIFECYCLE ==========================================
+
+//============================================= OPERATIONS =========================================
+
+// static
+I2C* I2C::instance(uint32_t id, bool open)
+{
+  switch (id) {
+#if BTR_I2C0_ENABLED > 0
+    case 0:
+      if (open) {
+        i2c_0.open();
+      }
+      return &i2c_0;
+#endif
+#if BTR_I2C1_ENABLED > 0
+    case 1:
+      if (open) {
+        i2c_1.open();
+      }
+      return &i2c_1;
+#endif
+    default:
+      return nullptr;
+  }
+}
+
+void I2C::open()
+{
+	rcc_periph_clock_enable(RCC_GPIOB);
+	//rcc_periph_clock_enable(RCC_AFIO);
+
+  if (I2C1 == dev_id_) {
+    rcc_periph_clock_enable(RCC_I2C1);
+	  gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_OPENDRAIN, GPIO6 | GPIO7);
+    gpio_set(GPIOB, GPIO6 | GPIO7);
+    gpio_primary_remap(0, 0); 
+  } else {
+    rcc_periph_clock_enable(RCC_I2C2);
+	  gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_OPENDRAIN, GPIO10 | GPIO11);
+    gpio_set(GPIOB, GPIO10 | GPIO11);
+  }
+
+	i2c_peripheral_disable(dev_id_);
+	i2c_reset(dev_id_);
+	I2C_CR1(dev_id_) &= ~I2C_CR1_STOP; // Clear stop.
+  setSpeed(BTR_I2C_FAST_SPEED);
+	i2c_set_dutycycle(dev_id_, I2C_CCR_DUTY_DIV2);
+	//i2c_set_own_7bit_slave_address(dev_id_, 0x23);
+	i2c_peripheral_enable(dev_id_);
+}
+
+void I2C::close()
+{
+	i2c_peripheral_disable(dev_id_);
+}
+
+/////////////////////////////////////////////// PROTECTED //////////////////////////////////////////
+
+//============================================= OPERATIONS =========================================
+
+
+/////////////////////////////////////////////// PRIVATE ////////////////////////////////////////////
+
+//============================================= OPERATIONS =========================================
+
+void I2C::setPullups(bool activate)
+{
+  (void) activate;
+}
+
+void I2C::setSpeed(bool fast)
+{
+  i2c_set_clock_frequency(dev_id_, I2C_CR2_FREQ_36MHZ);
+  i2c_speeds speed = (fast ? i2c_speed_fm_400k : i2c_speed_sm_100k);
+  // Set mode, ccr, and trise.
+  i2c_set_speed(dev_id_, speed, (rcc_apb1_frequency / 1000000));
+}
+
+uint32_t I2C::start(uint8_t addr, uint8_t rw)
+{
+  uint32_t rc = waitBusy();
+
+  if (BTR_IO_OK(rc)) {
+    // Clear acknowledge failure.
+    I2C_SR1(dev_id_) &= ~I2C_SR1_AF;
+		// Disable stop generation.
+    i2c_clear_stop(dev_id_);
+
+    if (BTR_I2C_READ == rw) {
+      i2c_enable_ack(dev_id_);
+    }
+
+    i2c_send_start(dev_id_);
+    uint32_t start_ms = Time::millis();
+
+    while (false == (
+          (I2C_SR1(dev_id_) & I2C_SR1_SB) &&
+          (I2C_SR2(dev_id_) & (I2C_SR2_MSL | I2C_SR2_BUSY))))
+    {
+      if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
+        rc = BTR_IO_ETIMEOUT;
+        reset();
+        return rc;
+      }
+      taskYIELD();
+    }
+
+    i2c_send_7bit_address(dev_id_, addr, rw);
+    start_ms = Time::millis();
+
+    // Wait until the address is sent and ACK recieved, or eitehr NACK or time-out occurs.
+    while (false == (I2C_SR1(dev_id_) & I2C_SR1_ADDR)) {
+      // Check if Ack Failed.
+      if (I2C_SR1(dev_id_) & I2C_SR1_AF) {
+        rc = BTR_IO_ENOACK;
+        stop();
+        return rc;
+      }
+      if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
+        rc = BTR_IO_ETIMEOUT;
+        stop();
+        return rc;
+      }
+      taskYIELD();
+    }
+    // Clear status register.
+    I2C_SR2(dev_id_);
+  }
+  return 0;
+}
+
+uint32_t I2C::stop()
+{
+  i2c_send_stop(dev_id_);
+  return BTR_IO_ENOERR;
+}
+
+uint32_t I2C::sendByte(uint8_t val)
+{
+	i2c_send_data(dev_id_, val);
+
+  uint32_t rc = BTR_IO_ENOERR;
+  uint32_t start_ms = Time::millis();
+
+  // Wait for send to finish or time out.
+	while (false == (I2C_SR1(dev_id_) & (I2C_SR1_BTF))) {
+    if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
+      rc = BTR_IO_ETIMEOUT;
+      stop();
+      break;
+    }
+		taskYIELD();
+	}
+  return rc;
+}
+
+uint32_t I2C::receiveByte(bool expect_ack, uint8_t* val)
+{
+	if (false == expect_ack) {
+		i2c_disable_ack(dev_id_);
+  } else {
+    i2c_enable_ack(dev_id_);
+  }
+
+  uint32_t rc = BTR_IO_ENOERR;
+  uint32_t start_ms = Time::millis();
+
+	while (false == (I2C_SR1(dev_id_) & I2C_SR1_RxNE)) {
+    if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
+      rc = BTR_IO_ETIMEOUT;
+      reset();
+      return rc;
+    }
+		taskYIELD();
+	}
+	
+  *val = i2c_get_data(dev_id_);
+  return rc;
+}
+
+uint32_t I2C::waitBusy()
+{
+  uint32_t rc = BTR_IO_ENOERR;
+
+  if (BTR_I2C_IO_TIMEOUT_MS > 0) {
+    uint32_t start_ms = Time::millis();
+
+    while (I2C_SR2(dev_id_) & I2C_SR2_BUSY) {
+      if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
+        rc = BTR_IO_ETIMEOUT;
+        reset();
+        break;
+      }
+      taskYIELD();
+    }
+  } else {
+    while (I2C_SR2(dev_id_) & I2C_SR2_BUSY) {
+      taskYIELD();
+    }
+  }
+  return rc;
+}
+
+} // namespace btr
+
+#endif // BTR_I2C_ENABLED > 0

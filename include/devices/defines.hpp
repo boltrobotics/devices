@@ -7,6 +7,7 @@
 #define _btr_Defines_hpp_
 
 // SYSTEM INCLUDES
+#define _STDC_FORMAT_MACROS
 #include <inttypes.h>
 
 namespace btr
@@ -105,66 +106,98 @@ namespace btr
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// VL53L0X {
+// Error codes {
 
-/** When enabling VL53L0X, also enable BTR_I2C_ENABLED. */
-#ifndef BTR_VL53L0X_ENABLED
-#define BTR_VL53L0X_ENABLED         0
-#endif
-#ifndef BTR_VL53LOX_ADDR_DFLT
-#define BTR_VL53LOX_ADDR_DFLT       0b0101001
-#endif
-#ifndef BTR_VL53LOX_COMPENSATE_MM
-#define BTR_VL53LOX_COMPENSATE_MM   -10
-#endif
-#ifndef BTR_VL53LOX_TIMEOUT_MS
-#define BTR_VL53LOX_TIMEOUT_MS      50
-#endif
-#ifndef BTR_VL53LOX_BUDGET_US
-#define BTR_VL53LOX_BUDGET_US       32000
-#endif
-#ifndef BTR_VL53LOX_LIMIT_MCPS_MIN
-#define BTR_VL53LOX_LIMIT_MCPS_MIN  0
-#endif
-#ifndef BTR_VL53LOX_LIMIT_MCPS_MAX
-#define BTR_VL53LOX_LIMIT_MCPS_MAX  511.99
-#endif
+#define BTR_IO_ENOERR         0x00000000
+#define BTR_IO_ENODATA        0x00010000
+#define BTR_IO_EOVERFLOW      0x00020000
+#define BTR_IO_EPARITY        0x00040000
+#define BTR_IO_EOVERRUN       0x00080000
+#define BTR_IO_EFRAME         0x00100000
+#define BTR_IO_ETIMEOUT       0x00110000
+#define BTR_IO_ENOTOPEN       0x00120000
 
-/** Decode VCSEL (vertical cavity surface emitting laser) pulse period in PCLKs from register. */
-#define BTR_VL53L0X_DECODE_VCSEL(val) (((val) + 1) << 1)
-/** Encode VCSEL pulse period register value from period in PCLKs. */
-#define BTR_VL53L0X_ENCODE_VCSEL(val) (((val) >> 1) - 1)
-/** Calculate macro period in *nanoseconds* from VCSEL period in PCLKs.
- * PLL_period_ps = 1655; macro_period_vclks = 2304. */
-#define BTR_VL53L0X_CALC_PERIOD(val) ((((uint32_t) 2304 * (val) * 1655) + 500) / 1000)
+#define BTR_IO_ESTART         0x00140000
+#define BTR_IO_ESENDBYTE      0x00180000
+#define BTR_IO_ERECVBYTE      0x00200000
+#define BTR_IO_ENOACK         0x00210000
+#define BTR_IO_ENONACK        0x00220000
 
-// } VL53L0X
+#define BTR_IO_ERR(v)         ((v & 0xFFFF0000) != 0)
+#define BTR_IO_OK(v)          ((v & 0xFFFF0000) == 0)
+#define BTR_IO_ESET(r)        (rc |= (e << 24))
+
+void status(uint32_t status);
+uint32_t status();
+
+// } Error codes
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // I2C {
 
-#ifndef BTR_I2C_ENABLED
-#define BTR_I2C_ENABLED             0
+/** On STM32F103C8T6, I2C0 refers to SCL1/SDA1, I2C1 to SCL2/SDA2. On AVR, only I2C0 is used. */
+#ifndef BTR_I2C0_ENABLED
+#define BTR_I2C0_ENABLED      0
 #endif
+#ifndef BTR_I2C1_ENABLED
+#define BTR_I2C1_ENABLED      0
+#endif
+
+#if BTR_I2C0_ENABLED > 0 || BTR_I2C1_ENABLED > 0
+
+//------------------------------------------------------------------------------
+
+#if BTR_AVR > 0 || BTR_ARD > 0
+#include <util/twi.h>
+
+/** I2C write operation. */
+#define BTR_I2C_WRITE               TW_WRITE
+/** I2C read operation. */
+#define BTR_I2C_READ                TW_READ
+
+#elif BTR_STM32 > 0
+#include <libopencm3/stm32/i2c.h>
+
+/** Define I2C write operation. */
+#define BTR_I2C_WRITE               I2C_WRITE 
+/** Define I2C read operation. */
+#define BTR_I2C_READ                I2C_READ
+
+#else
+/** Define I2C write operation. */
+#define BTR_I2C_WRITE               0 
+/** Define I2C read operation. */
+#define BTR_I2C_READ                1
+
+#endif // BTR_AVR > 0 || BTR_ARD > 0 || BTR_STM32 > 0
+
+//------------------------------------------------------------------------------
+
 #ifndef BTR_I2C_IO_TIMEOUT_MS
 #define BTR_I2C_IO_TIMEOUT_MS       100
+#endif
+/** Warn if time-out is zero. */
+#if BTR_I2C_IO_TIMEOUT_MS == 0
+#error "BTR_I2C_IO_TIMEOUT_MS is 0"
 #endif
 /** Wehn set to 1, bus speed is set to 400kHz, otherwise bus speed is set to 100kHz. */
 #ifndef BTR_I2C_FAST_SPEED
 #define BTR_I2C_FAST_SPEED          0
 #endif
-/** When set to 1, numeric values on I2C bus are transmitted using most-significant byte first. */
-#ifndef BTR_I2C_MSB_FIRST
-#define BTR_I2C_MSB_FIRST           1
+/** Maximum number of devices to scan. Absolute maximum is UINT8_MAX. */
+#ifndef BTR_I2C_SCAN_MAX
+#define BTR_I2C_SCAN_MAX            128
 #endif
 
 #define BTR_I2C_WRITE_ADDR(addr)    (addr << 1)
-#define BTR_I2C_READ_ADDR(addr)     ((addr << 1) + 0x01)
+#define BTR_I2C_READ_ADDR(addr)     ((addr << 1) + 1)
+
+#endif // BTR_I2C0_ENABLED > 0 || BTR_I2C1_ENABLED > 0
 
 // } I2C
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// USART {
+// USART/USB {
 
 /** Supported parity types. */
 typedef enum
@@ -193,14 +226,6 @@ typedef enum
   OUT,
   INOUT
 } DirectionType;
-
-#define BTR_IO_NO_DATA        0x00010000
-#define BTR_IO_OVERFLOW_ERR   0x00020000
-#define BTR_IO_PARITY_ERR     0x00040000
-#define BTR_IO_OVERRUN_ERR    0x00080000
-#define BTR_IO_FRAME_ERR      0x00100000
-#define BTR_IO_TIMEDOUT_ERR   0x00110000
-#define BTR_IO_NOTOPEN_ERR    0x00120000
 
 #if BTR_STM32 > 0
 
@@ -355,7 +380,52 @@ typedef enum
   ( (parity == ParityType::NONE ? 0 : (parity == ParityType::EVEN ? 32 : 48)) \
     + (stop_bits == StopBitsType::ONE ? 0 : 8) + (2 * (data_bits - 5)) )
 
-// } USART
+// } USART/USB
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// VL53L0X {
+
+/** When enabling VL53L0X, also enable BTR_I2C_ENABLED. */
+#ifndef BTR_VL53L0X_ENABLED
+#define BTR_VL53L0X_ENABLED         0
+#endif
+
+#ifndef BTR_VL53L0X_I2C
+#if BTR_STM32 > 0
+#define BTR_VL53L0X_I2C             I2C2
+#else
+#define BTR_VL53L0X_I2C             0
+#endif
+#endif // BTR_VL53L0X_I2C_DEV
+
+#ifndef BTR_VL53LOX_ADDR_DFLT
+#define BTR_VL53LOX_ADDR_DFLT       0b0101001
+#endif
+#ifndef BTR_VL53LOX_COMPENSATE_MM
+#define BTR_VL53LOX_COMPENSATE_MM   -10
+#endif
+#ifndef BTR_VL53LOX_TIMEOUT_MS
+#define BTR_VL53LOX_TIMEOUT_MS      1000
+#endif
+#ifndef BTR_VL53LOX_BUDGET_US
+#define BTR_VL53LOX_BUDGET_US       32000
+#endif
+#ifndef BTR_VL53LOX_LIMIT_MCPS_MIN
+#define BTR_VL53LOX_LIMIT_MCPS_MIN  0
+#endif
+#ifndef BTR_VL53LOX_LIMIT_MCPS_MAX
+#define BTR_VL53LOX_LIMIT_MCPS_MAX  511.99
+#endif
+
+/** Decode VCSEL (vertical cavity surface emitting laser) pulse period in PCLKs from register. */
+#define BTR_VL53L0X_DECODE_VCSEL(val) (((val) + 1) << 1)
+/** Encode VCSEL pulse period register value from period in PCLKs. */
+#define BTR_VL53L0X_ENCODE_VCSEL(val) (((val) >> 1) - 1)
+/** Calculate macro period in *nanoseconds* from VCSEL period in PCLKs.
+ * PLL_period_ps = 1655; macro_period_vclks = 2304. */
+#define BTR_VL53L0X_CALC_PERIOD(val) ((((uint32_t) 2304 * (val) * 1655) + 500) / 1000)
+
+// } VL53L0X
 
 } // namespace btr
 

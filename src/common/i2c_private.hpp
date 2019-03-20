@@ -3,6 +3,7 @@
 
 // PROJECT INCLUDES
 #include "devices/i2c.hpp"
+#include "utility/defines.hpp"
 
 #if BTR_I2C0_ENABLED > 0 || BTR_I2C1_ENABLED > 0
 
@@ -24,19 +25,20 @@ I2C::I2C(uint32_t dev_id)
 
 uint32_t I2C::scan()
 {
-  uint32_t rc = BTR_IO_ENOERR;
+  uint32_t rc = BTR_DEV_ENOERR;
   uint32_t count = 0;
 
   for (uint8_t addr = 0; addr < BTR_I2C_SCAN_MAX; addr++) {
     rc = start(addr, BTR_I2C_READ);
 
-    if (BTR_IO_OK(rc)) {
+    if (is_ok(rc)) {
       ++count;
     } else {
       break;
     }
     stop();
   }
+  set_status(dev::status(), rc);
   return (rc | count);
 }
 
@@ -45,16 +47,16 @@ uint32_t I2C::write(uint8_t addr, uint8_t reg, const uint8_t* buff, uint8_t byte
   uint32_t rc = start(addr, BTR_I2C_WRITE);
   uint32_t count = 0;
 
-  if (BTR_IO_OK(rc)) {
+  if (is_ok(rc)) {
     rc = sendByte(reg);
 
-    if (BTR_IO_OK(rc)) {
+    if (is_ok(rc)) {
       ++count;
 
       for (uint8_t i = 0; i < bytes; i++) {
         rc = sendByte(buff[i]);
 
-        if (BTR_IO_ERR(rc)) {
+        if (is_err(&rc)) {
           break;
         }
         ++count;
@@ -62,6 +64,7 @@ uint32_t I2C::write(uint8_t addr, uint8_t reg, const uint8_t* buff, uint8_t byte
     }
     stop();
   }
+  set_status(dev::status(), rc);
   return (rc | count);
 }
 
@@ -69,16 +72,17 @@ uint32_t I2C::read(uint8_t addr, uint8_t reg, uint8_t* buff, uint8_t count)
 {
   uint32_t rc = start(addr, BTR_I2C_WRITE);
 
-  if (BTR_IO_OK(rc)) {
+  if (is_ok(rc)) {
     rc = sendByte(reg);
 
-    if (BTR_IO_OK(rc)) {
+    if (is_ok(rc)) {
       // Stop then start in read (I2C restart).
       stop();
       rc = read(addr, buff, count, false);
     }
     stop();
   }
+  set_status(dev::status(), rc);
   return rc;
 }
 
@@ -87,7 +91,7 @@ uint32_t I2C::read(uint8_t addr, uint8_t* buff, uint8_t bytes, bool stop_comm)
   uint32_t rc = start(addr, BTR_I2C_READ);
   uint32_t count = 0;
 
-  if (BTR_IO_OK(rc)) {
+  if (is_ok(rc)) {
     if (bytes == 0) {
       bytes++;
     }
@@ -100,7 +104,7 @@ uint32_t I2C::read(uint8_t addr, uint8_t* buff, uint8_t bytes, bool stop_comm)
       } else {
         rc = receiveByte(false, &buff[i]);
       }
-      if (BTR_IO_ERR(rc)) {
+      if (is_err(rc)) {
         break;
       }
     }
@@ -108,6 +112,7 @@ uint32_t I2C::read(uint8_t addr, uint8_t* buff, uint8_t bytes, bool stop_comm)
       stop();
     }
   }
+  set_status(dev::status(), rc);
   return (rc | count);
 }
 

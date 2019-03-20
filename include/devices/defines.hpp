@@ -3,8 +3,8 @@
 
 /** @file */
 
-#ifndef _btr_Defines_hpp_
-#define _btr_Defines_hpp_
+#ifndef _devices_btr_Defines_hpp_
+#define _devices_btr_Defines_hpp_
 
 // SYSTEM INCLUDES
 #define _STDC_FORMAT_MACROS
@@ -13,7 +13,7 @@
 namespace btr
 {
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
+//==================================================================================================
 // General {
 
 #if BTR_AVR > 0
@@ -32,7 +32,7 @@ namespace btr
 
 // } General
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
+//==================================================================================================
 // Time {
 
 #if BTR_STM32 > 0 || BTR_AVR > 0 || BTR_ARD > 0
@@ -45,7 +45,7 @@ namespace btr
 
 // } Time
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
+//==================================================================================================
 // LED {
 
 #if BTR_STM32 > 0
@@ -105,40 +105,34 @@ namespace btr
 // } LED
 
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// Error codes {
+//==================================================================================================
+// Status {
 
-#define BTR_IO_ENOERR         0x00000000
-#define BTR_IO_ENODATA        0x00010000
-#define BTR_IO_EOVERFLOW      0x00020000
-#define BTR_IO_EPARITY        0x00040000
-#define BTR_IO_EOVERRUN       0x00080000
-#define BTR_IO_EFRAME         0x00100000
-#define BTR_IO_ETIMEOUT       0x00110000
-#define BTR_IO_ENOTOPEN       0x00120000
+#define BTR_DEV_ENOERR          0x00000000
+#define BTR_DEV_ENODATA         0x00010000
+#define BTR_DEV_EOVERFLOW       0x00020000
+#define BTR_DEV_EPARITY         0x00040000
+#define BTR_DEV_EOVERRUN        0x00080000
+#define BTR_DEV_EFRAME          0x00100000
+#define BTR_DEV_ETIMEOUT        0x00110000
+#define BTR_DEV_ENOTOPEN        0x00120000
+#define BTR_DEV_ESTART          0x00140000
+#define BTR_DEV_ESENDBYTE       0x00180000
+#define BTR_DEV_ERECVBYTE       0x00200000
+#define BTR_DEV_ENOACK          0x00210000
+#define BTR_DEV_ENONACK         0x00220000
+#define BTR_DEV_EINVAL          0x00240000
+#define BTR_DEV_EINIT           0x00280000
 
-#define BTR_IO_ESTART         0x00140000
-#define BTR_IO_ESENDBYTE      0x00180000
-#define BTR_IO_ERECVBYTE      0x00200000
-#define BTR_IO_ENOACK         0x00210000
-#define BTR_IO_ENONACK        0x00220000
-
-#define BTR_IO_ERR(v)         ((v & 0xFFFF0000) != 0)
-#define BTR_IO_OK(v)          ((v & 0xFFFF0000) == 0)
-#define BTR_IO_ESET(r)        (rc |= (e << 24))
-
-struct Devices
+namespace dev
 {
-  Devices(uint32_t status) : status_(status) {}
-  uint32_t status_;
-};
+/** Provide this module's status accumulator or nullptr if BTR_STATUS_ENABLED is 0. */
+uint32_t* status();
+}
 
-void set_status(Devices status);
-uint32_t status(Devices status);
+// } Status
 
-// } Error codes
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
+//==================================================================================================
 // I2C {
 
 /** On STM32F103C8T6, I2C0 refers to SCL1/SDA1, I2C1 to SCL2/SDA2. On AVR, only I2C0 is used. */
@@ -202,7 +196,7 @@ uint32_t status(Devices status);
 
 // } I2C
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
+//==================================================================================================
 // USART/USB {
 
 /** Supported parity types. */
@@ -388,7 +382,7 @@ typedef enum
 
 // } USART/USB
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
+//==================================================================================================
 // VL53L0X {
 
 /** When enabling VL53L0X, also enable BTR_I2C_ENABLED. */
@@ -435,4 +429,4 @@ typedef enum
 
 } // namespace btr
 
-#endif // _btr_Defines_hpp_
+#endif // _devices_btr_Defines_hpp_

@@ -52,6 +52,7 @@ I2C* I2C::instance(uint32_t id, bool open)
       return &i2c_1;
 #endif
     default:
+      set_status(dev::status(), BTR_DEV_EINVAL);
       return nullptr;
   }
 }
@@ -90,7 +91,6 @@ void I2C::close()
 
 //============================================= OPERATIONS =========================================
 
-
 /////////////////////////////////////////////// PRIVATE ////////////////////////////////////////////
 
 //============================================= OPERATIONS =========================================
@@ -112,7 +112,7 @@ uint32_t I2C::start(uint8_t addr, uint8_t rw)
 {
   uint32_t rc = waitBusy();
 
-  if (BTR_IO_OK(rc)) {
+  if (is_ok(rc)) {
     // Clear acknowledge failure.
     I2C_SR1(dev_id_) &= ~I2C_SR1_AF;
 		// Disable stop generation.
@@ -130,7 +130,7 @@ uint32_t I2C::start(uint8_t addr, uint8_t rw)
           (I2C_SR2(dev_id_) & (I2C_SR2_MSL | I2C_SR2_BUSY))))
     {
       if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
-        rc = BTR_IO_ETIMEOUT;
+        rc = BTR_DEV_ETIMEOUT;
         reset();
         return rc;
       }
@@ -144,12 +144,12 @@ uint32_t I2C::start(uint8_t addr, uint8_t rw)
     while (false == (I2C_SR1(dev_id_) & I2C_SR1_ADDR)) {
       // Check if ACK Failed.
       if (I2C_SR1(dev_id_) & I2C_SR1_AF) {
-        rc = BTR_IO_ENOACK;
+        rc = BTR_DEV_ENOACK;
         stop();
         return rc;
       }
       if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
-        rc = BTR_IO_ETIMEOUT;
+        rc = BTR_DEV_ETIMEOUT;
         stop();
         return rc;
       }
@@ -164,20 +164,20 @@ uint32_t I2C::start(uint8_t addr, uint8_t rw)
 uint32_t I2C::stop()
 {
   i2c_send_stop(dev_id_);
-  return BTR_IO_ENOERR;
+  return BTR_DEV_ENOERR;
 }
 
 uint32_t I2C::sendByte(uint8_t val)
 {
 	i2c_send_data(dev_id_, val);
 
-  uint32_t rc = BTR_IO_ENOERR;
+  uint32_t rc = BTR_DEV_ENOERR;
   uint32_t start_ms = Time::millis();
 
   // Wait for send to finish or time out.
 	while (false == (I2C_SR1(dev_id_) & (I2C_SR1_BTF))) {
     if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
-      rc = BTR_IO_ETIMEOUT;
+      rc = BTR_DEV_ETIMEOUT;
       stop();
       break;
     }
@@ -194,12 +194,12 @@ uint32_t I2C::receiveByte(bool expect_ack, uint8_t* val)
     i2c_enable_ack(dev_id_);
   }
 
-  uint32_t rc = BTR_IO_ENOERR;
+  uint32_t rc = BTR_DEV_ENOERR;
   uint32_t start_ms = Time::millis();
 
 	while (false == (I2C_SR1(dev_id_) & I2C_SR1_RxNE)) {
     if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
-      rc = BTR_IO_ETIMEOUT;
+      rc = BTR_DEV_ETIMEOUT;
       reset();
       return rc;
     }
@@ -212,14 +212,14 @@ uint32_t I2C::receiveByte(bool expect_ack, uint8_t* val)
 
 uint32_t I2C::waitBusy()
 {
-  uint32_t rc = BTR_IO_ENOERR;
+  uint32_t rc = BTR_DEV_ENOERR;
 
   if (BTR_I2C_IO_TIMEOUT_MS > 0) {
     uint32_t start_ms = Time::millis();
 
     while (I2C_SR2(dev_id_) & I2C_SR2_BUSY) {
       if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
-        rc = BTR_IO_ETIMEOUT;
+        rc = BTR_DEV_ETIMEOUT;
         reset();
         break;
       }

@@ -97,9 +97,9 @@ uint32_t I2C::start(uint8_t addr, uint8_t rw)
   set_reg(TWCR, BV(TWINT) | BV(TWSTA) | BV(TWEN));
   uint32_t rc = waitBusy();
 
-  if (BTR_IO_OK(rc)) {
+  if (is_ok(rc)) {
     if (TW_MT_ARB_LOST == TW_STATUS) {
-      rc = BTR_IO_ESTART;
+      rc = BTR_DEV_ESTART;
       reset();
       return rc;
     }
@@ -117,12 +117,12 @@ uint32_t I2C::start(uint8_t addr, uint8_t rw)
 
     uint32_t rc = waitBusy();
 
-    if (BTR_IO_OK(rc)) {
+    if (is_ok(rc)) {
       if (TW_MT_SLA_NACK == TW_STATUS || TW_MR_SLA_NACK == TW_STATUS) {
-        rc = BTR_IO_ENOACK;
+        rc = BTR_DEV_ENOACK;
         stop();
       } else if ((TW_MT_SLA_ACK != TW_STATUS) && (TW_MR_SLA_ACK != TW_STATUS)) {
-        rc = BTR_IO_ESTART;
+        rc = BTR_DEV_ESTART;
         reset();
       }
     }
@@ -132,7 +132,7 @@ uint32_t I2C::start(uint8_t addr, uint8_t rw)
 
 uint32_t I2C::stop()
 {
-  uint32_t rc = BTR_IO_ENOERR;
+  uint32_t rc = BTR_DEV_ENOERR;
   set_reg(TWCR, BV(TWINT) | BV(TWEN) | BV(TWSTO));
 
   if (BTR_I2C_IO_TIMEOUT_MS > 0) {
@@ -140,7 +140,7 @@ uint32_t I2C::stop()
 
     while (bit_is_set(TWCR, TWSTO)) {
       if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
-        rc = BTR_IO_ETIMEOUT;
+        rc = BTR_DEV_ETIMEOUT;
         reset();
         break;
       }
@@ -158,12 +158,12 @@ uint32_t I2C::sendByte(uint8_t val)
 
   uint32_t rc = waitBusy();
 
-  if (BTR_IO_OK(rc)) {
+  if (is_ok(rc)) {
     if (TW_MT_DATA_NACK == TW_STATUS) {
-      rc = BTR_IO_ESENDBYTE;
+      rc = BTR_DEV_ESENDBYTE;
       stop();
     } else if (TW_MT_DATA_ACK != TW_STATUS) {
-      rc = BTR_IO_ESENDBYTE;
+      rc = BTR_DEV_ESENDBYTE;
       reset();
     }
   }
@@ -180,9 +180,9 @@ uint32_t I2C::receiveByte(bool expect_ack, uint8_t* val)
 
   uint32_t rc = waitBusy();
 
-  if (BTR_IO_OK(rc)) {
+  if (is_ok(rc)) {
     if (TW_MT_ARB_LOST == TW_STATUS) {
-      rc = BTR_IO_ERECVBYTE;
+      rc = BTR_DEV_ERECVBYTE;
       reset();
       return rc;
     }
@@ -192,11 +192,11 @@ uint32_t I2C::receiveByte(bool expect_ack, uint8_t* val)
 
   if (expect_ack) {
     if (TW_MR_DATA_ACK != TW_STATUS) {
-      rc = BTR_IO_ENOACK;
+      rc = BTR_DEV_ENOACK;
     }
   } else {
     if (TW_MR_DATA_NACK != TW_STATUS) {
-      rc = BTR_IO_ENONACK;
+      rc = BTR_DEV_ENONACK;
     }
   }
   return rc;
@@ -204,14 +204,14 @@ uint32_t I2C::receiveByte(bool expect_ack, uint8_t* val)
 
 uint32_t I2C::waitBusy()
 {
-  uint32_t rc = BTR_IO_ENOERR;
+  uint32_t rc = BTR_DEV_ENOERR;
 
   if (BTR_I2C_IO_TIMEOUT_MS > 0) {
     uint32_t start_ms = Time::millis();
 
     while (bit_is_clear(TWCR, TWINT)) {
       if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
-        rc = BTR_IO_ETIMEOUT;
+        rc = BTR_DEV_ETIMEOUT;
         reset();
         break;
       }

@@ -212,7 +212,7 @@ inline uint32_t I2C::read(uint8_t addr, uint8_t reg, T* val)
 {
   int rc = I2C::read(addr, reg, buff_, sizeof(T));
 
-  if (BTR_IO_OK(rc)) {
+  if (is_ok(rc)) {
     ValueCodec::decodeFixedInt(buff_, val, sizeof(T), true);
   }
   return rc;

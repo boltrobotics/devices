@@ -355,7 +355,7 @@ uint32_t Usb::send(const char* buff, uint16_t bytes, uint32_t timeout)
   if (isOpen()) {
     while (bytes > 0) {
       if (pdPASS != xQueueSend(tx_q_, buff, pdMS_TO_TICKS(timeout))) {
-        rc |= BTR_IO_ETIMEOUT;
+        rc |= BTR_DEV_ETIMEOUT;
         break;
       }
       ++buff;
@@ -363,7 +363,7 @@ uint32_t Usb::send(const char* buff, uint16_t bytes, uint32_t timeout)
       --bytes;
     }
   } else {
-    rc = BTR_IO_ENOTOPEN;
+    rc = BTR_DEV_ENOTOPEN;
   }
   return rc;
 }
@@ -381,7 +381,7 @@ uint32_t Usb::recv(char* buff, uint16_t bytes, uint32_t timeout)
         ++rc;
       } else {
         // return can be errQUEUE_EMPTY as per PDF manual (not online)
-        rc |= BTR_IO_ETIMEOUT;
+        rc |= BTR_DEV_ETIMEOUT;
         break;
       }
     }
@@ -389,7 +389,7 @@ uint32_t Usb::recv(char* buff, uint16_t bytes, uint32_t timeout)
     rc |= (uint32_t(rx_error_) << 16);
     rx_error_ = 0;
   } else {
-    rc = BTR_IO_ENOTOPEN;
+    rc = BTR_DEV_ENOTOPEN;
   }
   return rc;
 }

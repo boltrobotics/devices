@@ -130,11 +130,11 @@ namespace btr
 struct Devices
 {
   Devices(uint32_t status) : status_(status) {}
-  uint32_t status;
+  uint32_t status_;
 };
 
-void status(Devices status);
-uint32_t status();
+void set_status(Devices status);
+uint32_t status(Devices status);
 
 // } Error codes
 

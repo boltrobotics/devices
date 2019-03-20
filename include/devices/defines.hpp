@@ -124,6 +124,10 @@ namespace btr
 #define BTR_DEV_EINVAL          0x00240000
 #define BTR_DEV_EINIT           0x00280000
 
+#ifndef BTR_STATUS_ENABLED
+#define BTR_STATUS_ENABLED      1
+#endif
+
 namespace dev
 {
 /** Provide this module's status accumulator or nullptr if BTR_STATUS_ENABLED is 0. */

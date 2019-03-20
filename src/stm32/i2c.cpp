@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
-// SYSTEM INCLDUES
+// SYSTEM INCLUDES
 #include <cstddef>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
@@ -140,9 +140,9 @@ uint32_t I2C::start(uint8_t addr, uint8_t rw)
     i2c_send_7bit_address(dev_id_, addr, rw);
     start_ms = Time::millis();
 
-    // Wait until the address is sent and ACK recieved, or eitehr NACK or time-out occurs.
+    // Wait until the address is sent and ACK received, or either NACK or time-out occurs.
     while (false == (I2C_SR1(dev_id_) & I2C_SR1_ADDR)) {
-      // Check if Ack Failed.
+      // Check if ACK Failed.
       if (I2C_SR1(dev_id_) & I2C_SR1_AF) {
         rc = BTR_IO_ENOACK;
         stop();

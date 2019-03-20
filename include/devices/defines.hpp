@@ -127,7 +127,13 @@ namespace btr
 #define BTR_IO_OK(v)          ((v & 0xFFFF0000) == 0)
 #define BTR_IO_ESET(r)        (rc |= (e << 24))
 
-void status(uint32_t status);
+struct Devices
+{
+  Devices(uint32_t status) : status_(status) {}
+  uint32_t status;
+};
+
+void status(Devices status);
 uint32_t status();
 
 // } Error codes

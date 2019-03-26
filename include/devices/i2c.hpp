@@ -1,6 +1,8 @@
 // Copyright (C) 2017 Bolt Robotics <info@boltrobotics.com>
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
+/** @file */
+
 #ifndef _btr_I2C_hpp_
 #define _btr_I2C_hpp_
 

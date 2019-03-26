@@ -1,3 +1,5 @@
+/** @file */
+
 #ifndef VexMotorEncoder_h
 #define VexMotorEncoder_h
 

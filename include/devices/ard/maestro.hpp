@@ -1,5 +1,7 @@
 // Copyright (C) Pololu Corporation. See LICENSE.txt for details.
 
+/** @file */
+
 /**
  * This is the main header file for the Pololu Maestro Servo Controller library
  * for Arduino.

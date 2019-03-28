@@ -1,9 +1,8 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.7)
 set(CMAKE_MODULE_PATH $ENV{CMAKEHELPERS_HOME}/cmake/Modules)
 
 include(stm32f103c8t6)
 include(stm32_project)
-
 setup_stm32()
 
 set(UTILITY_HOME $ENV{UTILITY_HOME})

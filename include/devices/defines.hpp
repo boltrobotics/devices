@@ -249,7 +249,7 @@ typedef enum
 #endif // Platform
 
 #ifndef BTR_USB0_ENABLED
-#define BTR_USB0_ENABLED      0
+#define BTR_USB0_ENABLED        0
 #endif
 
 #ifndef BTR_USART0_ENABLED

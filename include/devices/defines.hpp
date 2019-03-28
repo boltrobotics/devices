@@ -16,7 +16,7 @@ namespace btr
 //==================================================================================================
 // General {
 
-#if BTR_AVR > 0
+#if BTR_AVR > 0 || BTR_ARD > 0
 //! @cond Suppress_Doxygen_Warning
 #include <avr/io.h>
 //! @endcond
@@ -28,7 +28,7 @@ namespace btr
 #define toggle_bit(sfr, bit)    (_SFR_BYTE(sfr) ^= BV(bit))  
 #define set_reg(reg, val)       (reg = val)
 
-#endif // BTR_AVR > 0
+#endif // BTR_AVR > 0 || BTR_ARD > 0
 
 // } General
 
@@ -74,8 +74,7 @@ namespace btr
 
 #elif BTR_AVR > 0 || BTR_ARD > 0
 
-// LED pins apply only to Arduino boards. An AVR board is assumed to have the same set-up.
-#if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P_)
+#if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
 #define BTR_BUILTIN_LED_PORT  PORTB
 #define BTR_BUILTIN_LED_PIN   PB5
 #define BTR_BUILTIN_LED_DDR   DDRB
@@ -83,6 +82,8 @@ namespace btr
 #define BTR_BUILTIN_LED_PORT  PORTB
 #define BTR_BUILTIN_LED_PIN   PB7
 #define BTR_BUILTIN_LED_DDR   DDRB
+#else
+#warning AVR device is not supported
 #endif
 
 #define LED_ON()  \
@@ -238,7 +239,7 @@ typedef enum
 
 #elif BTR_AVR > 0 || BTR_ARD > 0
 
-#if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P_)
+#if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
 #define BTR_USART_MIN_ID        0
 #define BTR_USART_MAX_ID        0
 #elif defined(__AVR__ATmega1280__) || defined(__AVR_ATmega2560__)

@@ -1,24 +1,9 @@
-####################################################################################################
-# utility {
-
-set(UTILITY_HOME $ENV{UTILITY_HOME})
-include_directories(${UTILITY_HOME}/include)
-
-if (NOT TARGET utility)
-  add_subdirectory(${UTILITY_HOME} ${PROJECT_BINARY_DIR}/utility)
-endif ()
-
-# }
-
-####################################################################################################
-# devices test {
+setup_dep(utility $ENV{UTILITY_HOME} SUB_DIR "") 
 
 include(test_project)
 setup_tests()
 find_test_srcs()
-build_tests(SRCS ${SOURCES} LIBS ${PROJECT_NAME} ${UTILITY} SUFFIX "-tests")
-
-# } devices test
+build_tests(SRCS ${SOURCES} LIBS ${PROJECT_NAME} ${BTR_LIBS} SUFFIX "-tests")
 
 set(DOXYGEN_WARN NO)
 set(DOXYGEN_PREPROCESSING YES)

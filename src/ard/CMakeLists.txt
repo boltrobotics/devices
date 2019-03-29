@@ -7,5 +7,5 @@ setup_dep(utility $ENV{UTILITY_HOME} SUB_DIR "src/${BOARD_FAMILY}")
 
 setup_arduino()
 
-find_srcs()
+find_srcs(XTRA_PATHS "${ROOT_SOURCE_DIR}/src/avr/*.cpp")
 build_lib(SRCS ${SOURCES})

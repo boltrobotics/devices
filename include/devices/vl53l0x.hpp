@@ -132,9 +132,9 @@ public:
    * modules. The device has to be recalibrated if cover glass is added.
    *
    * @param io_2v8 - configured for 2V8 mode if true, otherwise configure for 1V8 mode
-   * @return true if initialized, false otherwise
+   * @return 0 if initialized, -1 otherwise
    */
-  bool init(bool io_2v8 = true);
+  int init(bool io_2v8 = true);
 
   /**
    * Set new I2C slave address and write the target register.

@@ -35,13 +35,27 @@ namespace btr
 //==================================================================================================
 // Time {
 
-#if BTR_STM32 > 0 || BTR_AVR > 0 || BTR_ARD > 0
-
 #ifndef BTR_TIME_ENABLED 
+#if BTR_STM32 > 0 || BTR_AVR > 0 || BTR_X86 > 0
 #define BTR_TIME_ENABLED        1
+#elif BTR_ARD > 0
+#define BTR_TIME_ENABLED        0
+#endif // #if BTR_STM32 > 0 || BTR_AVR > 0 || BTR_X86 > 0
 #endif
 
-#endif // Platform
+#if BTR_ARD > 0
+#define MILLIS()                (millis())
+#define SEC()                   (MILLIS() / 1000)
+#define TMDIFF(a,b)             (((UINT32_MAX + a - b) % UINT32_MAX))
+#elif BTR_AVR > 0 || BTR_STM32 > 0
+#define MILLIS()                (Time::millis())
+#define SEC()                   (Time::sec())
+#define TM_DIFF(a,b)            (Time::diff(a, b))
+#endif
+
+/** Check if timeout is greater than 0, if so, check if time window has expired. */
+#define IS_TIMEOUT(timeout_ms, start_ms) \
+  (timeout_ms > 0 && (TM_DIFF(MILLIS(), start_ms) > timeout_ms))
 
 // } Time
 

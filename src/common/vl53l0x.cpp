@@ -3,22 +3,23 @@
 
 // Based on code by Pololu.
 
-// SYSTEM INCLUDES
-#include <stddef.h>
-
 // PROJECT INCLDUES
+#include "devices/defines.hpp"
 #include "devices/vl53l0x.hpp"
 #include "devices/i2c.hpp"
 #include "devices/time.hpp"
+
+// SYSTEM INCLUDES
+#include <stddef.h>
+
+#if BTR_ARD > 0
+#include <Arduino.h>
+#endif
 
 #if BTR_VL53L0X_ENABLED > 0
 
 namespace btr
 {
-
-// Check if timeout is enabled (set to nonzero value) and has expired
-#define IS_TIMEOUT(tm) \
-  (BTR_VL53LOX_TIMEOUT_MS > 0 && ((Time::millis() - tm) > BTR_VL53LOX_TIMEOUT_MS))
 
 /////////////////////////////////////////////// PUBLIC /////////////////////////////////////////////
 
@@ -35,7 +36,7 @@ VL53L0X::VL53L0X()
 
 //============================================= OPERATIONS =========================================
 
-bool VL53L0X::init(bool io_2v8)
+int VL53L0X::init(bool io_2v8)
 {
   // Sensor uses 1V8 mode for I/O by default.
 
@@ -67,7 +68,7 @@ bool VL53L0X::init(bool io_2v8)
   bool spad_type_is_aperture;
 
   if (!getSpadInfo(&spad_count, &spad_type_is_aperture)) {
-    return false;
+    return -1;
   }
 
   // The SPAD map (RefGoodSpadMap) is read by VL53L0X_get_info_from_device() in
@@ -212,18 +213,18 @@ bool VL53L0X::init(bool io_2v8)
   writeReg(SYSTEM_SEQUENCE_CONFIG, 0x01);
 
   if (!performSingleRefCalibration(0x40)) {
-    return false;
+    return -1;
   }
 
   writeReg(SYSTEM_SEQUENCE_CONFIG, 0x02);
 
   if (!performSingleRefCalibration(0x00)) {
-    return false;
+    return -1;
   }
 
   // Restore the previous sequence config.
   writeReg(SYSTEM_SEQUENCE_CONFIG, 0xE8);
-  return true;
+  return 0;
 }
 
 void VL53L0X::setAddress(uint8_t addr)
@@ -612,10 +613,10 @@ void VL53L0X::stopContinuous()
 
 uint16_t VL53L0X::readRangeContinuousMillimeters()
 {
-  uint32_t tm = Time::millis();
+  uint32_t tm = MILLIS();
 
   while ((readReg(RESULT_INTERRUPT_STATUS) & 0x07) == 0) {
-    if (IS_TIMEOUT(tm)) {
+    if (IS_TIMEOUT(BTR_VL53LOX_TIMEOUT_MS, tm)) {
       status_ |= (uint16_t(1) << 8);
       return UINT16_MAX;
     }
@@ -638,11 +639,11 @@ uint16_t VL53L0X::readRangeSingleMillimeters()
   writeReg(0x80, 0x00);
   writeReg(SYSRANGE_START, 0x01);
 
-  uint32_t tm = Time::millis();
+  uint32_t tm = MILLIS();
 
   // Wait until start bit has been cleared.
   while (readReg(SYSRANGE_START) & 0x01) {
-    if (IS_TIMEOUT(tm)) {
+    if (IS_TIMEOUT(BTR_VL53LOX_TIMEOUT_MS, tm)) {
       status_ |= (uint16_t(1) << 8);
       return UINT16_MAX;
     }
@@ -679,10 +680,10 @@ bool VL53L0X::getSpadInfo(uint8_t * count, bool * type_is_aperture)
   writeReg(0x94, 0x6b);
   writeReg(0x83, 0x00);
 
-  uint32_t tm = Time::millis();
+  uint32_t tm = MILLIS();
 
   while (readReg(0x83) == 0x00) {
-    if (IS_TIMEOUT(tm)) {
+    if (IS_TIMEOUT(BTR_VL53LOX_TIMEOUT_MS, tm)) {
       return false;
     }
   }
@@ -788,10 +789,10 @@ bool VL53L0X::performSingleRefCalibration(uint8_t vhv_init_byte)
   // VL53L0X_REG_SYSRANGE_MODE_START_STOP
   writeReg(SYSRANGE_START, 0x01 | vhv_init_byte);
 
-  uint32_t tm = Time::millis();
+  uint32_t tm = MILLIS();
 
   while ((readReg(RESULT_INTERRUPT_STATUS) & 0x07) == 0) {
-    if (IS_TIMEOUT(tm)) {
+    if (IS_TIMEOUT(BTR_VL53LOX_TIMEOUT_MS, tm)) {
       return false; 
     }
   }

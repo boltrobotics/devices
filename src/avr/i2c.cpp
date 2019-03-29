@@ -2,9 +2,14 @@
 // License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 
 // PROJECT INCLUDES
+#include "devices/defines.hpp"
 #include "devices/i2c.hpp"  // class implemented
 #include "devices/time.hpp"
 #include "i2c_private.hpp"
+
+#if BTR_ARD > 0
+#include <Arduino.h>
+#endif
 
 // SYSTEM INCLDUES
 #include <util/twi.h>
@@ -136,10 +141,10 @@ uint32_t I2C::stop()
   set_reg(TWCR, BV(TWINT) | BV(TWEN) | BV(TWSTO));
 
   if (BTR_I2C_IO_TIMEOUT_MS > 0) {
-    uint32_t start_ms = Time::millis();
+    uint32_t start_ms = MILLIS();
 
     while (bit_is_set(TWCR, TWSTO)) {
-      if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
+      if (TM_DIFF(MILLIS(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
         rc = BTR_DEV_ETIMEOUT;
         reset();
         break;
@@ -207,10 +212,10 @@ uint32_t I2C::waitBusy()
   uint32_t rc = BTR_DEV_ENOERR;
 
   if (BTR_I2C_IO_TIMEOUT_MS > 0) {
-    uint32_t start_ms = Time::millis();
+    uint32_t start_ms = MILLIS();
 
     while (bit_is_clear(TWCR, TWINT)) {
-      if (Time::diff(Time::millis(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
+      if (TM_DIFF(MILLIS(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
         rc = BTR_DEV_ETIMEOUT;
         reset();
         break;

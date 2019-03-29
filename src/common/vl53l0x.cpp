@@ -3,14 +3,14 @@
 
 // Based on code by Pololu.
 
+// SYSTEM INCLUDES
+#include <stddef.h>
+
 // PROJECT INCLDUES
 #include "devices/defines.hpp"
 #include "devices/vl53l0x.hpp"
 #include "devices/i2c.hpp"
 #include "devices/time.hpp"
-
-// SYSTEM INCLUDES
-#include <stddef.h>
 
 #if BTR_ARD > 0
 #include <Arduino.h>
@@ -27,8 +27,7 @@ namespace btr
 
 VL53L0X::VL53L0X()
   :
-    status_(0),
-    addr_(BTR_VL53LOX_ADDR_DFLT),
+    addr_(BTR_VL53L0X_ADDR_DFLT),
     stop_var_(0),
     timing_budget_us_(0)
 {
@@ -240,63 +239,63 @@ uint8_t VL53L0X::getAddress()
 
 void VL53L0X::writeReg(uint8_t reg, uint8_t value)
 {
-  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
-  status_ = i2c->write(addr_, reg, value);
+  I2C* i2c = I2C::instance(BTR_VL53L0X_PORT_I2C, false);
+  i2c->write(addr_, reg, value);
 }
 
 void VL53L0X::writeReg16Bit(uint8_t reg, uint16_t value)
 {
   uint8_t* buff = reinterpret_cast<uint8_t*>(&value);
-  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
-  status_ = i2c->write(addr_, reg, buff, sizeof(value));
+  I2C* i2c = I2C::instance(BTR_VL53L0X_PORT_I2C, false);
+  i2c->write(addr_, reg, buff, sizeof(value));
 }
 
 void VL53L0X::writeReg32Bit(uint8_t reg, uint32_t value)
 {
   uint8_t* buff = reinterpret_cast<uint8_t*>(&value);
-  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
-  status_ = i2c->write(addr_, reg, buff, sizeof(value));
+  I2C* i2c = I2C::instance(BTR_VL53L0X_PORT_I2C, false);
+  i2c->write(addr_, reg, buff, sizeof(value));
 }
 
 uint8_t VL53L0X::readReg(uint8_t reg)
 {
   uint8_t value = 0;
-  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
-  status_ = i2c->read(addr_, reg, &value);
+  I2C* i2c = I2C::instance(BTR_VL53L0X_PORT_I2C, false);
+  i2c->read(addr_, reg, &value);
   return value;
 }
 
 uint16_t VL53L0X::readReg16Bit(uint8_t reg)
 {
   uint16_t value = 0;
-  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
-  status_ = i2c->read(addr_, reg, &value);
+  I2C* i2c = I2C::instance(BTR_VL53L0X_PORT_I2C, false);
+  i2c->read(addr_, reg, &value);
   return value;
 }
 
 uint32_t VL53L0X::readReg32Bit(uint8_t reg)
 {
   uint32_t value = 0;
-  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
-  status_ = i2c->read(addr_, reg, &value);
+  I2C* i2c = I2C::instance(BTR_VL53L0X_PORT_I2C, false);
+  i2c->read(addr_, reg, &value);
   return value;
 }
 
 void VL53L0X::writeMulti(uint8_t reg, uint8_t* src, uint8_t count)
 {
-  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
-  status_ = i2c->write(addr_, reg, src, count);
+  I2C* i2c = I2C::instance(BTR_VL53L0X_PORT_I2C, false);
+  i2c->write(addr_, reg, src, count);
 }
 
 void VL53L0X::readMulti(uint8_t reg, uint8_t* dst, uint8_t count)
 {
-  I2C* i2c = I2C::instance(BTR_VL53L0X_I2C, false);
-  status_ = i2c->read(addr_, reg, dst, count);
+  I2C* i2c = I2C::instance(BTR_VL53L0X_PORT_I2C, false);
+  i2c->read(addr_, reg, dst, count);
 }
 
 bool VL53L0X::setSignalRateLimit(float limit_mcps)
 {
-  if (limit_mcps < BTR_VL53LOX_LIMIT_MCPS_MIN || limit_mcps > BTR_VL53LOX_LIMIT_MCPS_MAX) {
+  if (limit_mcps < BTR_VL53L0X_LIMIT_MCPS_MIN || limit_mcps > BTR_VL53L0X_LIMIT_MCPS_MAX) {
     return false;
   }
 
@@ -616,16 +615,15 @@ uint16_t VL53L0X::readRangeContinuousMillimeters()
   uint32_t tm = MILLIS();
 
   while ((readReg(RESULT_INTERRUPT_STATUS) & 0x07) == 0) {
-    if (IS_TIMEOUT(BTR_VL53LOX_TIMEOUT_MS, tm)) {
-      status_ |= (uint16_t(1) << 8);
-      return UINT16_MAX;
+    if (IS_TIMEOUT(BTR_VL53L0X_TIMEOUT_MS, tm)) {
+      set_status(dev::status(), BTR_DEV_ETIMEOUT);
     }
   }
 
   // Assumptions: Linearity Corrective Gain is 1000 (default). Fractional ranging is not enabled.
   uint16_t range = readReg16Bit(RESULT_RANGE_STATUS + 10);
   writeReg(SYSTEM_INTERRUPT_CLEAR, 0x01);
-  return (range + BTR_VL53LOX_COMPENSATE_MM);
+  return (range + BTR_VL53L0X_COMPENSATE_MM);
 }
 
 uint16_t VL53L0X::readRangeSingleMillimeters()
@@ -643,19 +641,11 @@ uint16_t VL53L0X::readRangeSingleMillimeters()
 
   // Wait until start bit has been cleared.
   while (readReg(SYSRANGE_START) & 0x01) {
-    if (IS_TIMEOUT(BTR_VL53LOX_TIMEOUT_MS, tm)) {
-      status_ |= (uint16_t(1) << 8);
-      return UINT16_MAX;
+    if (IS_TIMEOUT(BTR_VL53L0X_TIMEOUT_MS, tm)) {
+      set_status(dev::status(), BTR_DEV_ETIMEOUT);
     }
   }
   return readRangeContinuousMillimeters();
-}
-
-bool VL53L0X::isTimeout()
-{
-  bool tmp = (status_ & 0xFF00);
-  status_ &= ~(uint16_t(1) << 8);
-  return tmp;
 }
 
 /////////////////////////////////////////////// PRIVATE ////////////////////////////////////////////
@@ -683,7 +673,7 @@ bool VL53L0X::getSpadInfo(uint8_t * count, bool * type_is_aperture)
   uint32_t tm = MILLIS();
 
   while (readReg(0x83) == 0x00) {
-    if (IS_TIMEOUT(BTR_VL53LOX_TIMEOUT_MS, tm)) {
+    if (IS_TIMEOUT(BTR_VL53L0X_TIMEOUT_MS, tm)) {
       return false;
     }
   }
@@ -792,7 +782,7 @@ bool VL53L0X::performSingleRefCalibration(uint8_t vhv_init_byte)
   uint32_t tm = MILLIS();
 
   while ((readReg(RESULT_INTERRUPT_STATUS) & 0x07) == 0) {
-    if (IS_TIMEOUT(BTR_VL53LOX_TIMEOUT_MS, tm)) {
+    if (IS_TIMEOUT(BTR_VL53L0X_TIMEOUT_MS, tm)) {
       return false; 
     }
   }

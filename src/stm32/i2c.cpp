@@ -80,11 +80,13 @@ void I2C::open()
 	i2c_set_dutycycle(dev_id_, I2C_CCR_DUTY_DIV2);
 	//i2c_set_own_7bit_slave_address(dev_id_, 0x23);
 	i2c_peripheral_enable(dev_id_);
+  open_ = true;
 }
 
 void I2C::close()
 {
 	i2c_peripheral_disable(dev_id_);
+  open_ = false;
 }
 
 /////////////////////////////////////////////// PROTECTED //////////////////////////////////////////

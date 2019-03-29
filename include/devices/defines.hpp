@@ -404,36 +404,36 @@ typedef enum
 //==================================================================================================
 // VL53L0X {
 
-/** When enabling VL53L0X, also enable BTR_I2C_ENABLED. */
+/** When enabling VL53L0X, also enable BTR_I2C0_ENABLED. */
 #ifndef BTR_VL53L0X_ENABLED
 #define BTR_VL53L0X_ENABLED         0
 #endif
 
-#ifndef BTR_VL53L0X_I2C
+#ifndef BTR_VL53L0X_PORT_I2C
 #if BTR_STM32 > 0
-#define BTR_VL53L0X_I2C             I2C2
+#define BTR_VL53L0X_PORT_I2C             1
 #else
-#define BTR_VL53L0X_I2C             0
+#define BTR_VL53L0X_PORT_I2C             0
 #endif
-#endif // BTR_VL53L0X_I2C_DEV
+#endif // BTR_VL53L0X_PORT_I2C_DEV
 
-#ifndef BTR_VL53LOX_ADDR_DFLT
-#define BTR_VL53LOX_ADDR_DFLT       0b0101001
+#ifndef BTR_VL53L0X_ADDR_DFLT
+#define BTR_VL53L0X_ADDR_DFLT       0b0101001
 #endif
-#ifndef BTR_VL53LOX_COMPENSATE_MM
-#define BTR_VL53LOX_COMPENSATE_MM   -10
+#ifndef BTR_VL53L0X_COMPENSATE_MM
+#define BTR_VL53L0X_COMPENSATE_MM   -10
 #endif
-#ifndef BTR_VL53LOX_TIMEOUT_MS
-#define BTR_VL53LOX_TIMEOUT_MS      1000
+#ifndef BTR_VL53L0X_TIMEOUT_MS
+#define BTR_VL53L0X_TIMEOUT_MS      1000
 #endif
-#ifndef BTR_VL53LOX_BUDGET_US
-#define BTR_VL53LOX_BUDGET_US       32000
+#ifndef BTR_VL53L0X_BUDGET_US
+#define BTR_VL53L0X_BUDGET_US       32000
 #endif
-#ifndef BTR_VL53LOX_LIMIT_MCPS_MIN
-#define BTR_VL53LOX_LIMIT_MCPS_MIN  0
+#ifndef BTR_VL53L0X_LIMIT_MCPS_MIN
+#define BTR_VL53L0X_LIMIT_MCPS_MIN  0
 #endif
-#ifndef BTR_VL53LOX_LIMIT_MCPS_MAX
-#define BTR_VL53LOX_LIMIT_MCPS_MAX  511.99
+#ifndef BTR_VL53L0X_LIMIT_MCPS_MAX
+#define BTR_VL53L0X_LIMIT_MCPS_MAX  511.99
 #endif
 
 /** Decode VCSEL (vertical cavity surface emitting laser) pulse period in PCLKs from register. */

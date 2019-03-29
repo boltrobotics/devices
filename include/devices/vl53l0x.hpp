@@ -302,19 +302,6 @@ public:
    */
   uint16_t readRangeSingleMillimeters();
 
-  /**
-   * Check if read operation timed out. Reset time-out status upon function return.
-   *
-   * @return true if read timed-out, false otherwise
-   */
-  bool isTimeout();
-
-// ATTRIBUTES
-
-  /** Lower 8 bits is the status of last I2C transmission. Upper 8 bits is 1 when last operation
-   * timed-out and 0 when it didn't. */
-  uint16_t status_;
-
 private:
 
   struct SequenceStepEnables

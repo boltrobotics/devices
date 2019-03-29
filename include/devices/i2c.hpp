@@ -50,6 +50,13 @@ public:
   static I2C* instance(uint32_t dev_id, bool open);
 
   /**
+   * Check if device is open.
+   *
+   * @return true if device is initialized, false otherwise
+   */
+  bool isOpen();
+
+  /**
    * Initialize the device.
    */
   void open();
@@ -199,6 +206,8 @@ private:
   uint32_t dev_id_;
   /** Temporary buffer to read/write a byte to. */
   uint8_t buff_[sizeof(uint64_t)];
+  /** Flag indicating if the device is open. */
+  bool open_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

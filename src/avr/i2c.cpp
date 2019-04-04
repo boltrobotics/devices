@@ -46,12 +46,14 @@ void I2C::open()
 
   // Enable TWI operation and interface.
   set_reg(TWCR, BV(TWEN) | BV(TWEA));
+  open_ = true;
 }
 
 void I2C::close()
 {
   // Switch off TWI and terminate all ongoing transmissions
   set_reg(TWCR, 0);
+  open_ = false;
 }
 
 /////////////////////////////////////////////// PROTECTED //////////////////////////////////////////
@@ -120,7 +122,7 @@ uint32_t I2C::start(uint8_t addr, uint8_t rw)
     set_reg(TWDR, addr_rw);
     set_reg(TWCR, BV(TWINT) | BV(TWEN));
 
-    uint32_t rc = waitBusy();
+    rc = waitBusy();
 
     if (is_ok(rc)) {
       if (TW_MT_SLA_NACK == TW_STATUS || TW_MR_SLA_NACK == TW_STATUS) {

@@ -3,7 +3,7 @@
 
 // PROJECT INCLUDES
 #include "devices/ard/vex_motor_encoder.hpp"
-#include "devices/ard/i2c.hpp"
+#include "devices/i2c.hpp"
 
 // INITIALIZE
 unsigned char VexMotorEncoder::nextAddress = I2CENCODER_STARTING_ADDRESS;

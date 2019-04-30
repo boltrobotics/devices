@@ -2,13 +2,13 @@
 
 help()
 {
-  echo -e "Usage: `basename $0` [-x] [-s] [-a] [-d] [-p _projects_home_] [-h]"
+  echo -e "Usage: `basename $0` [-x] [-s] [-a] [-r] [-d] [-p _projects_home_] [-h]"
   echo -e "  -x - build x86"
   echo -e "  -s - build stm32"
   echo -e "  -a - build avr"
   echo -e "  -r - build arduino"
   echo -e "  -d - pull dependencies"
-  echo -e "  -p - projects home"
+  echo -e "  -p - absolute path to projects home"
   echo -e "  -h - this help"
 }
 

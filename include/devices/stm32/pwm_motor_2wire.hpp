@@ -13,16 +13,17 @@
 
 // Prescalers:
 //  PLL (72e6)
-//  -> APBn:                   72MHz / 2 = 36MHz
-//  -> global timer prescaler: 36MHz * 2 = 72MHz
-//  -> private timer:          72MHz / 4 = 18MHz
-//  -> PWM center-aligned:     18MHz / 2 = 9MHz
-//  -> private timer period:    9MHz / 22.500kHz = 400
+//  -> APB1:                   72MHz / 2 = 36MHz
+  //  -> global timer:            36MHz * 2 = 72MHz (only when prescaler is greater than 1)
+//  -> private timer:          36MHz / 1 = 36MHz
+//  -> PWM center-aligned:     36MHz / 2 = 18MHz
+//  -> private timer period:   18MHz / 20kHz = 900
 //
 // The above calculation results in frequency of 18.001kHz looking at oscilloscope. Set period to
-// 320 (?) for 22.500kHz.
-#define GEAR_PWM_PERIOD   320
-#define GEAR_PRESCALER    4
+// 320 (?) for 22.500kHz. 320/4 gives 20k.
+//
+#define GEAR_PWM_PERIOD   900
+#define GEAR_PRESCALER    1
 
 #define SERVO_PRESCALER   72    // F_CPU 72MHz / 72 = 1MHz
 #define SERVO_PWM_PERIOD  20000 // Private timer 1MHz / 50Hz = 20000
@@ -130,6 +131,16 @@ PwmMotor2Wire::PwmMotor2Wire(
   pwm_pin_bw_(pwm_pin_bw),
   max_duty_(max_duty)
 {
+  if (motor_type == GEAR) {
+    if (max_duty_ > GEAR_PWM_PERIOD) {
+      max_duty_ = GEAR_PWM_PERIOD;
+    }
+  } else {
+    if (max_duty_ > SERVO_PWM_PERIOD) {
+      max_duty_ = SERVO_PWM_PERIOD;
+    }
+  }
+
   rcc_periph_clock_enable(RCC_AFIO);
   rcc_periph_clock_enable(rcc_timer_clk);
   rcc_periph_clock_enable(rcc_pwm_clk_fw);
@@ -189,12 +200,22 @@ PwmMotor2Wire::PwmMotor2Wire(
 
 void PwmMotor2Wire::setDuty(int16_t duty)
 {
+  // Process the values in this range: [-(max_duty - 2), (max_duty - 2)]
+
   if (duty > 0) {
+    if ((duty + 1) > max_duty_) {
+      duty = (max_duty_ - 1);
+    }
     timer_set_oc_value(timer_, timer_ocid_fw_, max_duty_);
-    timer_set_oc_value(timer_, timer_ocid_bw_, duty);
+    timer_set_oc_value(timer_, timer_ocid_bw_, (max_duty_ - duty));
   } else if (duty < 0) {
+    uint16_t duty_tmp = -duty;
+
+    if ((duty_tmp + 1) > max_duty_) {
+      duty_tmp = (max_duty_ - 1);
+    }
     timer_set_oc_value(timer_, timer_ocid_bw_, max_duty_);
-    timer_set_oc_value(timer_, timer_ocid_fw_, -duty);
+    timer_set_oc_value(timer_, timer_ocid_fw_, (max_duty_ - duty_tmp));
   } else {
     timer_set_oc_value(timer_, timer_ocid_fw_, max_duty_);
     timer_set_oc_value(timer_, timer_ocid_bw_, max_duty_);

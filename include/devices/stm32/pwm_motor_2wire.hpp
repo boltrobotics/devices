@@ -11,8 +11,19 @@
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/timer.h>
 
-#define GEAR_PRESCALER    4     // F_CPU 72MHz / 4 = 18MHz
-#define GEAR_PWM_PERIOD   400   // Private timer 9MHz (i.e. 18MHz / 2 center-align) / 22.5KHz = 400
+// Prescalers:
+//  PLL (72e6)
+//  -> APBn:                   72MHz / 2 = 36MHz
+//  -> global timer prescaler: 36MHz * 2 = 72MHz
+//  -> private timer:          72MHz / 4 = 18MHz
+//  -> PWM center-aligned:     18MHz / 2 = 9MHz
+//  -> private timer period:    9MHz / 22.500kHz = 400
+//
+// The above calculation results in frequency of 18.001kHz looking at oscilloscope. Set period to
+// 320 (?) for 22.500kHz.
+#define GEAR_PWM_PERIOD   320
+#define GEAR_PRESCALER    4
+
 #define SERVO_PRESCALER   72    // F_CPU 72MHz / 72 = 1MHz
 #define SERVO_PWM_PERIOD  20000 // Private timer 1MHz / 50Hz = 20000
 
@@ -34,12 +45,12 @@ public:
   /**
    * Ctor.
    *
-   * @param motor_type
-   * @param rcc_timer_clk
-   * @param timer
-   * @param timer_ocid_fw
-   * @param timer_ocid_bw
-   * @param rcc_pwm_clk_fw
+   * @param motor_type - GEAR or SERVO
+   * @param rcc_timer_clk - RCC_GPIOB for PB* pins, etc.
+   * @param timer - RCC_TIM4 for T4* timer, etc.
+   * @param timer_ocid_fw - TIM_OC3 for output compare channel 3, etc.
+   * @param timer_ocid_bw - TIM_OC4 for output compare channel 4, etc.
+   * @param rcc_pwm_clk_fw - 
    * @param pwm_port_fw
    * @param pwm_pin_fw
    * @param rcc_pwm_clk_bw
@@ -64,15 +75,15 @@ public:
 // OPERATIONS
 
   /**
-   * @param speed - pwm value between 0 and max_duty()
-   * @param forward - 0 - reverse, 1 - forward
+   * @param duty - absolute value represents pwm duty, between 0 and maxDuty(); sign represents
+   *  direction.
    */
-  void setSpeed(uint16_t speed, uint8_t forward);
+  void setDuty(int16_t duty);
 
   /**
    * @return maximum duty in ticks between 0 and GEAR_PWM_PERIOD/SERVO_PWM_PERIOD
    */
-  uint16_t max_duty() const;
+  uint16_t maxDuty() const;
 
 private:
 
@@ -134,21 +145,22 @@ PwmMotor2Wire::PwmMotor2Wire(
 
   if (motor_type == GEAR) {
     // Set timer to center-aligned mode (Phase & Frequency Correct).
+    // cms_1: interrupt flags are set when counting down 
+    // cms_2: interrupt flags are set when counting up 
+    // cms_3: interrupt flags are set when counting up and down 
     timer_set_mode(timer_, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_CENTER_2, TIM_CR1_DIR_UP);
-
-    // Prescalers: PLL (72e6) -> APBn (72e6 / 2 = 36e6) -> global timer (36e6 * 2 = 72e6) ->
-    //  private timer (72e6 / 4 = 18e6) -> PWM center-aligned (18e6 / 2 = 9MHz)
     timer_set_prescaler(timer_, GEAR_PRESCALER);
 
     // Sets TIMx_ARR register (pwm period).
-    // For servo at 50Hz: 180000 ticks at 9MHz => 20 mS period (180000 * 1/9e6)
-    // For gear motor at 22,500Hz = 400 ticks at 9MHz clock => 44 uS period (400 * 1/9e6)
-    // Only pulse width matters for servos (not PWM duty cycle, e.g. 20mS)
     timer_set_period(timer_, GEAR_PWM_PERIOD);
   } else {
     // To conserve power, stop sending servo control pulses (change mode to input, AVRP.220)
     timer_set_mode(timer_, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
     timer_set_prescaler(timer_, SERVO_PRESCALER);
+
+    // Sets TIMx_ARR register (pwm period).
+    // For servo at 50Hz: 180000 ticks at 9MHz => 20 mS period (180000 * 1/9e6).
+    // For servo, only pulse width matters not PWM duty cycle, e.g. 20mS.
     timer_set_period(timer_, SERVO_PWM_PERIOD);
   }
 
@@ -158,6 +170,8 @@ PwmMotor2Wire::PwmMotor2Wire(
   // PWM1 mode sets output pin when TIMx_CNT < TIMx_CCR, otherwise it clears it.
   timer_disable_oc_output(timer_, timer_ocid_fw_);
   timer_disable_oc_output(timer_, timer_ocid_bw_);
+  // TIM_OCM_PWM1: When counting up, the output channel is active (high) when the timer's count
+  // is less than the timer capture/compare register, or else the channel goes low.
   timer_set_oc_mode(timer_, timer_ocid_fw_, TIM_OCM_PWM1);
   timer_set_oc_mode(timer_, timer_ocid_bw_, TIM_OCM_PWM1);
   timer_enable_oc_output(timer_, timer_ocid_fw_);
@@ -173,41 +187,23 @@ PwmMotor2Wire::PwmMotor2Wire(
 
 //============================================= OPERATIONS =========================================
 
-void PwmMotor2Wire::setSpeed(uint16_t speed, uint8_t forward)
+void PwmMotor2Wire::setDuty(int16_t duty)
 {
-  if (speed != 0) {
-    if (forward) {
-      timer_set_oc_value(timer_, timer_ocid_fw_, max_duty_);
-      timer_set_oc_value(timer_, timer_ocid_bw_, speed);
-    } else {
-      timer_set_oc_value(timer_, timer_ocid_bw_, max_duty_);
-      timer_set_oc_value(timer_, timer_ocid_fw_, speed);
-    }
+  if (duty > 0) {
+    timer_set_oc_value(timer_, timer_ocid_fw_, max_duty_);
+    timer_set_oc_value(timer_, timer_ocid_bw_, duty);
+  } else if (duty < 0) {
+    timer_set_oc_value(timer_, timer_ocid_bw_, max_duty_);
+    timer_set_oc_value(timer_, timer_ocid_fw_, -duty);
   } else {
     timer_set_oc_value(timer_, timer_ocid_fw_, max_duty_);
     timer_set_oc_value(timer_, timer_ocid_bw_, max_duty_);
     //timer_set_oc_value(timer_, timer_ocid_fw_, 0);
     //timer_set_oc_value(timer_, timer_ocid_bw_, 0);
   }
-#if 0
-  // AVR 2-wire motor
-  //
-  if (speed != 0) {
-    if (reverse) {
-      *ocr_fw_ = speed;
-      *ocr_bw_ = max_pwm_;
-    } else {
-      *ocr_fw_ = max_pwm_;
-      *ocr_bw_ = speed;
-    }
-  } else {
-    *ocr_fw_ = max_pwm_;
-    *ocr_bw_ = max_pwm_;
-  }
-#endif
 }
 
-uint16_t PwmMotor2Wire::max_duty() const
+uint16_t PwmMotor2Wire::maxDuty() const
 {
   return max_duty_;
 }

@@ -226,7 +226,8 @@ typedef enum
   EVEN
 } ParityType;
 
-#define PARITY_FROM_INT(v) ((v==1 ? ParityType::ODD : (v==2 ? ParityType::EVEN : ParityType::NONE)))
+#define PARITY_FROM_INT(v) ((v==1 ? \
+      btr::ParityType::ODD : (v==2 ? btr::ParityType::EVEN : btr::ParityType::NONE)))
 
 /** Supported stop bit types. */
 typedef enum
@@ -236,7 +237,7 @@ typedef enum
   TWO
 } StopBitsType;
 
-#define TO_STOP_BITS(v) ((v==2 ? StopBitsType::TWO : StopBitsType::ONE))
+#define TO_STOP_BITS(v) ((v==2 ? btr::StopBitsType::TWO : btr::StopBitsType::ONE))
 
 /** Data flow direction. */
 typedef enum

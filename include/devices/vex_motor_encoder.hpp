@@ -9,7 +9,7 @@
 // SYSTEM INCLUDES
 #include <stdint.h>
 
-// The default addr_ for an encoder that's just been turned on.
+// The default address of an encoder that's just been turned on.
 #define I2CENCODER_DEFAULT_ADDRESS      0x30
 #define I2CENCODER_ADDRESS_REGISTER     0x4D
 #define I2CENCODER_POSITION_REGISTER    0x40
@@ -31,7 +31,7 @@
 // 64 microseconds * 1s/10^6microseconds * 1 minute/60s
 #define MOTOR_269_TIME_DELTA            0.00000106666
 
-//// 393 Motor configured for torque:
+// 393 Motor configured for torque:
 // Encoder Revolutions to Output Rotations
 // 1 (Output Rotation) / 39.2 (Encoder Revolution)
 #define MOTOR_393_TORQUE_ROTATIONS      0.02551020408	

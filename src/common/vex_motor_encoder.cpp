@@ -48,7 +48,7 @@ void VexMotorEncoder::init(double rotation_factor, double time_delta, int ticks)
   time_delta_ = time_delta;
   ticks_ = ticks;
 
-  I2C* i2c = I2C::instance(BTR_VEXIMU_PORT_I2C, false);
+  I2C* i2c = I2C::instance(BTR_VEXIMU_PORT_I2C, true);
   i2c->write(I2CENCODER_DEFAULT_ADDRESS, uint8_t(I2CENCODER_ADDRESS_REGISTER), uint8_t(addr_ << 1));
 
   zero();

@@ -146,7 +146,7 @@ uint32_t I2C::stop()
     uint32_t start_ms = MILLIS();
 
     while (bit_is_set(TWCR, TWSTO)) {
-      if (TM_DIFF(MILLIS(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
+      if (TIME_DIFF(MILLIS(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
         rc = BTR_DEV_ETIMEOUT;
         reset();
         break;
@@ -217,7 +217,7 @@ uint32_t I2C::waitBusy()
     uint32_t start_ms = MILLIS();
 
     while (bit_is_clear(TWCR, TWINT)) {
-      if (TM_DIFF(MILLIS(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
+      if (TIME_DIFF(MILLIS(), start_ms) > BTR_I2C_IO_TIMEOUT_MS) {
         rc = BTR_DEV_ETIMEOUT;
         reset();
         break;

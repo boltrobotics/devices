@@ -55,7 +55,7 @@ namespace btr
 
 /** Check if timeout is greater than 0, if so, check if time window has expired. */
 #define IS_TIMEOUT(timeout_ms, start_ms) \
-  (timeout_ms > 0 && (TM_DIFF(MILLIS(), start_ms) > timeout_ms))
+  (timeout_ms > 0 && (TIME_DIFF(MILLIS(), start_ms) > timeout_ms))
 
 // } Time
 

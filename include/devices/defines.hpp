@@ -46,11 +46,11 @@ namespace btr
 #if BTR_ARD > 0
 #define MILLIS()                (millis())
 #define SEC()                   (MILLIS() / 1000)
-#define TMDIFF(a,b)             (((UINT32_MAX + a - b) % UINT32_MAX))
+#define TIME_DIFF(a,b)             (((UINT32_MAX + a - b) % UINT32_MAX))
 #elif BTR_AVR > 0 || BTR_STM32 > 0
 #define MILLIS()                (Time::millis())
 #define SEC()                   (Time::sec())
-#define TM_DIFF(a,b)            (Time::diff(a, b))
+#define TIME_DIFF(a,b)          (Time::diff(a, b))
 #endif
 
 /** Check if timeout is greater than 0, if so, check if time window has expired. */
@@ -64,16 +64,34 @@ namespace btr
 
 #if BTR_STM32 > 0
 
+#if !defined(BTR_BLUE_PILL) && !defined(BTR_BLACK_PILL)
+#define BTR_BLUE_PILL         1
+#endif
+
 // The LED in BlackPill use GPIOB, GPIO12, in BluePill GPIOC, GPIO13
 #ifndef BTR_BUILTIN_LED_CLK
+#ifdef BTR_BLACK_PILL
 #define BTR_BUILTIN_LED_CLK   RCC_GPIOB
-#endif
+#else
+#define BTR_BUILTIN_LED_CLK   RCC_GPIOC
+#endif // BTR_BLACK_PILL
+#endif // BTR_BUILTIN_LED_CLK
+
 #ifndef BTR_BUILTIN_LED_PORT
+#ifdef BTR_BLACK_PILL
 #define BTR_BUILTIN_LED_PORT  GPIOB
-#endif
+#else
+#define BTR_BUILTIN_LED_PORT  GPIOC
+#endif // BTR_BLACK_PILL
+#endif // BTR_BUILTIN_LED_PORT
+
 #ifndef BTR_BUILTIN_LED_PIN
+#ifdef BTR_BLACK_PILL
 #define BTR_BUILTIN_LED_PIN   GPIO12
-#endif
+#else
+#define BTR_BUILTIN_LED_PIN   GPIO13
+#endif // BTR_BLACK_PILL
+#endif // BTR_BUILTIN_LED_PIN
 
 #define LED_ENABLE() \
   do { \
@@ -164,8 +182,8 @@ uint32_t* status();
 
 #if BTR_I2C0_ENABLED > 0 || BTR_I2C1_ENABLED > 0
 
-//------------------------------------------------------------------------------
-
+//--------------------------------------------------------------------------------------------------
+// AVR/ARD
 #if BTR_AVR > 0 || BTR_ARD > 0
 #include <util/twi.h>
 
@@ -174,7 +192,10 @@ uint32_t* status();
 /** I2C read operation. */
 #define BTR_I2C_READ                TW_READ
 
+//--------------------------------------------------------------------------------------------------
+// STM32
 #elif BTR_STM32 > 0
+
 #include <libopencm3/stm32/i2c.h>
 
 /** Define I2C write operation. */
@@ -190,7 +211,7 @@ uint32_t* status();
 
 #endif // BTR_AVR > 0 || BTR_ARD > 0 || BTR_STM32 > 0
 
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 
 #ifndef BTR_I2C_IO_TIMEOUT_MS
 #define BTR_I2C_IO_TIMEOUT_MS       100
@@ -309,7 +330,7 @@ typedef enum
 #ifndef BTR_USART_IR_BUFF_SIZE
 #define BTR_USART_IR_BUFF_SIZE  16
 #endif
-/** USB doesn't work with lower values like 64 bytes. Keep it at 128. TODO look into it */
+/** USB doesn't work with lower values like 64 bytes. Keep it at 128. */
 //#ifndef BTR_USART_CR_BUFF_SIZE
 #define BTR_USART_CR_BUFF_SIZE  128
 //#endif
@@ -405,7 +426,7 @@ typedef enum
 //==================================================================================================
 // VL53L0X {
 
-/** When enabling VL53L0X, also enable BTR_I2C0_ENABLED. */
+/** When enabling VL53L0X, also set BTR_I2C0_ENABLED. */
 #ifndef BTR_VL53L0X_ENABLED
 #define BTR_VL53L0X_ENABLED         0
 #endif

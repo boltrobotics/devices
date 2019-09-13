@@ -19,7 +19,6 @@ The project contains device drivers for use on AVR / STM32 / x86 platforms.
 * [Common Code](#common_code)
   * [MaxSonarLvEz](#MaxSonarLvEx)
   * [WheelEncoder](#WheelEncoder)
-* [Contribute](#Contribute)
 
 ## <a name="Build">Build</a>
 
@@ -79,8 +78,3 @@ The class calculates range in millimeters from an ADC sample of MaxSonar ultraso
 ### <a name="WheelEncoder" href="https://github.com/boltrobotics/devices/tree/master/include/devices/wheel_encoder.hpp" target="_blank">WheelEncoder</a>
 
 The class counts the number of clicks that a virtual wheel moved forward and backward.
-
-# <a name="Contribute" href="https://boltrobotics.com/contribute/" target="_blank">Contribute</a>
-
-Consider supporting our projects by contributing to their development.
-<a href="https://boltrobotics.com/contribute/" target="_blank">Learn more at boltrobotics.com</a>

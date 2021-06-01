@@ -1,3 +1,11 @@
+find_program (SOCAT_EXE NAMES socat)
+
+if (SOCAT_EXE-NOTFOUND)
+  message(FATAL_ERROR "socat not found. Use: sudo apt install socat")
+else ()
+  message(STATUS "socat found in ${SOCAT_EXE}")
+endif ()
+
 setup_dep(utility $ENV{UTILITY_HOME} SUB_DIR "") 
 
 include(test_project)

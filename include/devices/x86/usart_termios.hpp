@@ -1,5 +1,8 @@
-// Copyright (C) 2017 Bolt Robotics <info@boltrobotics.com>
-// License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+// Copyright (C) 2017 Sergey Kapustin <kapucin@gmail.com>
+
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /** @file */
 
@@ -45,7 +48,6 @@ public:
    * @param data_bits
    * @param parity - @see ParityType
    * @param timeout - serial operation timeout
-   * @return 0 on success, -1 on failure
    */
   void configure(
       const char* port_name,

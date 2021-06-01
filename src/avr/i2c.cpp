@@ -1,15 +1,14 @@
-// Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
-// License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+// Copyright (C) 2019 Sergey Kapustin <kapucin@gmail.com>
+
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 // PROJECT INCLUDES
 #include "devices/defines.hpp"
 #include "devices/i2c.hpp"  // class implemented
 #include "devices/time.hpp"
 #include "i2c_private.hpp"
-
-#if BTR_ARD > 0
-#include <Arduino.h>
-#endif
 
 // SYSTEM INCLDUES
 #include <util/twi.h>

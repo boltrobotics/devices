@@ -1,5 +1,8 @@
-// Copyright (C) 2019 Bolt Robotics <info@boltrobotics.com>
-// License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+// Copyright (C) 2019 Sergey Kapustin <kapucin@gmail.com>
+
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 // Based on code by Pololu.
 
@@ -11,10 +14,6 @@
 #include "devices/vl53l0x.hpp"
 #include "devices/i2c.hpp"
 #include "devices/time.hpp"
-
-#if BTR_ARD > 0
-#include <Arduino.h>
-#endif
 
 #if BTR_VL53L0X_ENABLED > 0
 

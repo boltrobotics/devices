@@ -1,5 +1,8 @@
-// Copyright (C) 2018 Bolt Robotics <info@boltrobotics.com>
-// License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+// Copyright (C) 2018 Sergey Kapustin <kapucin@gmail.com>
+
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /** @file */
 
@@ -8,7 +11,6 @@
 
 // SYSTEM INCLUDES
 #include <inttypes.h>
-#include <Arduino.h>
 
 #define GEAR_PRESCALER    1     // F_CPU 16MHz / 1 = 16MHz
 #define GEAR_PWM_PERIOD   400   // Private timer 8MHz (16MHz / 2 center-align) / 22KHz = 400

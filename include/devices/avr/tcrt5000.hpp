@@ -1,5 +1,8 @@
-// Copyright (C) 2017 Bolt Robotics <info@boltrobotics.com>
-// License: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+// Copyright (C) 2017 Sergey Kapustin <kapucin@gmail.com>
+
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /** @file */
 
@@ -7,7 +10,6 @@
 #define _btr_TCRT5000_hpp_
 
 // SYSTEM INCLUDES
-#include <Arduino.h>
 
 namespace btr
 {
@@ -53,6 +55,7 @@ inline TCRT5000::TCRT5000()
 inline void TCRT5000::update()
 {
 #if 0;
+  // FIXME Convert to plain AVR code
   pinMode(6, OUTPUT);
 
   // Turn on TCRT emitting led

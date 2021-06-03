@@ -107,7 +107,7 @@ void I2C::setPullups(bool activate)
 
 void I2C::setSpeed(bool fast)
 {
-  i2c_set_clock_frequency(dev_id_, I2C_CR2_FREQ_36MHZ);
+  i2c_set_clock_frequency(dev_id_, 36);
   i2c_speeds speed = (fast ? i2c_speed_fm_400k : i2c_speed_sm_100k);
   // Set mode, ccr, and trise.
   i2c_set_speed(dev_id_, speed, (rcc_apb1_frequency / 1000000));

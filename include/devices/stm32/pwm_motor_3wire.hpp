@@ -37,10 +37,10 @@ public:
   /**
    * Ctor.
    *
-   * @param motor_type
-   * @param rcc_timer_clk
-   * @param timer
-   * @param timer_ocid
+   * @param motor_type - motor type, GEAR or SERVO
+   * @param rcc_timer_clk - timer clock ID, RCC_TIMx
+   * @param timer - timer ID, TIMx
+   * @param timer_ocid - timer output channel ID (TIMC_OCx)
    * @param rcc_pwm_clk
    * @param pwm_port
    * @param pwm_pin
@@ -66,20 +66,19 @@ public:
       rcc_periph_clken rcc_inb_clk,
       uint32_t inb_port,
       uint16_t inb_pin,
-      uint16_t max_duty);
+      uint16_t max_speed);
 
 // OPERATIONS
 
   /**
-   * @param speed - pwm value between -max and +max
-   * @param forward - 0 - reverse, 1 - forward
+   * @param velocity - PWM duty value. Reverse if negative, forward if positive, stop if zero
    */
-  void setSpeed(int16_t speed, uint8_t forward);
+  void setVelocity(int16_t velocity);
 
   /**
    * @return maximum duty in ticks between 0 and GEAR_PWM_PERIOD/SERVO_PWM_PERIOD
    */
-  uint16_t max_duty() const;
+  uint16_t maxSpeed() const;
 
 private:
 
@@ -93,7 +92,7 @@ private:
   uint16_t ina_pin_;
   uint32_t inb_port_;
   uint16_t inb_pin_;
-  uint16_t max_duty_;
+  uint16_t max_speed_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -118,7 +117,7 @@ PwmMotor3Wire::PwmMotor3Wire(
     rcc_periph_clken rcc_inb_clk,
     uint32_t inb_port,
     uint16_t inb_pin,
-    uint16_t max_duty
+    uint16_t max_speed
     ) :
   timer_(timer),
   timer_ocid_(timer_ocid),
@@ -128,7 +127,7 @@ PwmMotor3Wire::PwmMotor3Wire(
   ina_pin_(ina_pin),
   inb_port_(inb_port),
   inb_pin_(inb_pin),
-  max_duty_(max_duty)
+  max_speed_(max_speed)
 {
   rcc_periph_clock_enable(rcc_timer_clk);
   rcc_periph_clock_enable(RCC_AFIO);
@@ -184,27 +183,26 @@ PwmMotor3Wire::PwmMotor3Wire(
 
 //============================================= OPERATIONS =========================================
 
-void PwmMotor3Wire::setSpeed(int16_t speed, uint8_t forward)
+void PwmMotor3Wire::setVelocity(int16_t velocity)
 {
-  timer_set_oc_value(timer_, timer_ocid_, speed);
-
-  if (speed != 0) {
-    if (forward) {
-      gpio_set(ina_port_, ina_pin_);
-      gpio_clear(inb_port_, inb_pin_);
-    } else {
-      gpio_clear(ina_port_, ina_pin_);
-      gpio_set(inb_port_, inb_pin_);
-    }
+  if (velocity > 0) {
+    timer_set_oc_value(timer_, timer_ocid_, velocity);
+    gpio_set(ina_port_, ina_pin_);
+    gpio_clear(inb_port_, inb_pin_);
+  } else if (velocity < 0) {
+    timer_set_oc_value(timer_, timer_ocid_, -velocity);
+    gpio_clear(ina_port_, ina_pin_);
+    gpio_set(inb_port_, inb_pin_);
   } else {
+    timer_set_oc_value(timer_, timer_ocid_, velocity);
     gpio_clear(ina_port_, ina_pin_);
     gpio_clear(inb_port_, inb_pin_);
   }
 }
 
-uint16_t PwmMotor3Wire::max_duty() const
+uint16_t PwmMotor3Wire::maxSpeed() const
 {
-  return max_duty_;
+  return max_speed_;
 }
 
 } // namespace btr

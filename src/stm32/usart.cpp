@@ -86,7 +86,7 @@ static void txTask(void* arg)
         taskYIELD();
       }
       usart_send(u->pin_, ch);
-      LED_TOGGLE();
+      //LED_TOGGLE();
     }
   }
 }
@@ -105,7 +105,7 @@ static void onRecv(btr::Usart* u)
       u->rx_error_ |= (BTR_DEV_EOVERFLOW >> 16);
     }
   }
-  LED_TOGGLE();
+  //LED_TOGGLE();
 }
 
 #if BTR_USART0_ENABLED > 0

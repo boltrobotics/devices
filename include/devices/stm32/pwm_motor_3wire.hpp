@@ -50,7 +50,7 @@ public:
    * @param rcc_inb_clk
    * @param inb_port
    * @param inb_pin
-   * @param max_duty - in ticks between 0 - GEAR_PWM_PERIOD/SERVO_PWM_PERIOD
+   * @param max_speed - in ticks between 0 - GEAR_PWM_PERIOD/SERVO_PWM_PERIOD
    */
   PwmMotor3Wire(
       MotorType motor_type,

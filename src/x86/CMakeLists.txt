@@ -1,5 +1,4 @@
 include(x86_project)
-setup_x86()
 
 find_package(Boost REQUIRED COMPONENTS system)
 find_package(Threads)
@@ -8,4 +7,4 @@ setup_dep(utility $ENV{UTILITY_HOME} SUB_DIR "./")
 
 find_srcs(FILTER ${MAIN_SRC})
 list(APPEND LIBS ${BTR_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
-build_lib(INC_DIRS ${utility_INC_DIR} SRCS ${SOURCES} LIBS ${LIBS})
+build_lib(SRCS ${SOURCES} LIBS ${LIBS} INC_DIRS ${utility_INC_DIR})

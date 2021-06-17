@@ -12,4 +12,6 @@ include(avr_project)
 setup_dep(utility $ENV{UTILITY_HOME} SUB_DIR "src/${BOARD_FAMILY}")
 setup_avr()
 find_srcs()
-build_lib(SRCS ${SOURCES})
+build_lib(
+  SRCS ${SOURCES}
+  INC_DIRS ${utility_INC_DIR})

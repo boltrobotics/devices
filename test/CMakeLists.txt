@@ -9,9 +9,12 @@ endif ()
 setup_dep(utility $ENV{UTILITY_HOME} SUB_DIR "") 
 
 include(test_project)
-setup_tests()
 find_test_srcs()
-build_tests(SRCS ${SOURCES} LIBS ${PROJECT_NAME} ${BTR_LIBS} SUFFIX "-tests")
+build_tests(
+  SRCS ${SOURCES}
+  LIBS ${PROJECT_NAME} ${BTR_LIBS}
+  SUFFIX "-tests"
+  INC_DIRS ${utility_INC_DIR})
 
 set(DOXYGEN_WARN NO)
 set(DOXYGEN_PREPROCESSING YES)

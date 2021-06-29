@@ -1,6 +1,6 @@
 find_program (SOCAT_EXE NAMES socat)
 
-if (SOCAT_EXE-NOTFOUND)
+if (NOT SOCAT_EXE)
   message(FATAL_ERROR "socat not found. Use: sudo apt install socat")
 else ()
   message(STATUS "socat found in ${SOCAT_EXE}")

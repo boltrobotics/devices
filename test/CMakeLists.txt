@@ -1,9 +1,9 @@
-find_program (SOCAT_EXE NAMES socat)
+find_program (SOCAT NAMES socat NO_CACHE)
 
-if (NOT SOCAT_EXE)
+if (NOT SOCAT)
   message(FATAL_ERROR "socat not found. Use: sudo apt install socat")
 else ()
-  message(STATUS "socat found in ${SOCAT_EXE}")
+  message(STATUS "socat found: ${SOCAT}")
 endif ()
 
 setup_dep(utility $ENV{UTILITY_HOME} SUB_DIR "") 

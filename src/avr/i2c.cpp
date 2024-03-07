@@ -6,9 +6,8 @@
 
 // PROJECT INCLUDES
 #include "devices/defines.hpp"
-#include "devices/i2c.hpp"  // class implemented
+#include "devices/i2c.hpp"  // class partially implemented
 #include "devices/time.hpp"
-#include "i2c_private.hpp"
 
 // SYSTEM INCLDUES
 #include <util/twi.h>

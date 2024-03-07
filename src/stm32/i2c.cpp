@@ -12,8 +12,7 @@
 #include <libopencm3/cm3/nvic.h>
 
 // PROJECT INCLUDES
-#include "devices/i2c.hpp"  // class implemented
-#include "i2c_private.hpp"
+#include "devices/i2c.hpp"  // class partially implemented
 #include "devices/time.hpp"
 #include "FreeRTOS.h"
 #include "task.h"

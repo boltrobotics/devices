@@ -4,7 +4,7 @@ Provides drivers for USART, USB, 2-3 wire motors, time functions on ESP32 / AVR 
 ## Build 
 
 Set up the build following an
-<a href="https://github.com/boltrobotics/cmake-helpers/#example-project">example</a> from
+<a href="https://github.com/boltrobotics/cmake-helpers/#Example">example</a> from
 cmake-helpers project.
 
 <a name="x86"></a>

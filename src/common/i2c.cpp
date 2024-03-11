@@ -19,7 +19,12 @@ namespace btr
 
 I2C::I2C(uint32_t dev_id)
   :
-    dev_id_(dev_id),
+#if BTR_ESP32 > 0
+    bus_handle_(nullptr),
+    dev_handle_(nullptr),
+#else
+    bus_handle_(dev_id),
+#endif
     buff_(),
     open_(false)
 {

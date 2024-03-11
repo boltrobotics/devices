@@ -139,20 +139,6 @@ private:
 // OPERATIONS
 
   /**
-   * Activate or deactivate internal pull-up resistors.
-   *
-   * @param activate - deactivate pull-ups if false, activate if true
-   */
-  void setPullups(bool activate);
-
-  /**
-   * Set TWI line speed.
-   *
-   * @param fast - when true, the line is set to 400kHz. Otherwise, it's set to 100kHz
-   */
-  void setSpeed(bool fast);
-
-  /**
    * Start I2C transaction and send an address.
    *
    * @param addr - slave address
@@ -205,8 +191,14 @@ private:
 
 // ATTRIBUTES
 
+#if BTR_ESP32 > 0
+  i2c_master_bus_handle_t bus_handle_;
+  i2c_master_dev_handle_t dev_handle_;
+#else
   /** This device's port identifier (I2C1, I2C2 in STM32); it is not I2C address. */
-  uint32_t dev_id_;
+  uint32_t bus_handle_;
+#endif
+
   /** Temporary buffer to read/write a byte to. */
   uint8_t buff_[sizeof(uint64_t)];
   /** Flag indicating if the device is open. */
@@ -222,17 +214,6 @@ private:
 //============================================= OPERATIONS =========================================
 
 template<typename T>
-inline uint32_t I2C::read(uint8_t addr, uint8_t reg, T* val)
-{
-  int rc = I2C::read(addr, reg, buff_, sizeof(T));
-
-  if (is_ok(rc)) {
-    ValueCodec::decodeFixedInt(buff_, val, sizeof(T), true);
-  }
-  return rc;
-}
-
-template<typename T>
 inline uint32_t I2C::write(uint8_t addr, uint8_t reg, T value)
 {
   if (sizeof(T) > 1 && ValueCodec::isLittleEndian()) {
@@ -241,6 +222,17 @@ inline uint32_t I2C::write(uint8_t addr, uint8_t reg, T value)
 
   const uint8_t* buff = reinterpret_cast<uint8_t*>(&value);
   return write(addr, reg, buff, sizeof(T));
+}
+
+template<typename T>
+inline uint32_t I2C::read(uint8_t addr, uint8_t reg, T* val)
+{
+  int rc = I2C::read(addr, reg, buff_, sizeof(T));
+
+  if (is_ok(rc)) {
+    ValueCodec::decodeFixedInt(buff_, val, sizeof(T), true);
+  }
+  return rc;
 }
 
 } // namespace btr

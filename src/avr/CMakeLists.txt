@@ -9,6 +9,9 @@ if (NOT AVR_UPLOADTOOL_PORT)
 endif ()
 
 include(avr_project)
+
+set(CMAKE_CXX_STANDARD 17)
+
 setup_dep(utility $ENV{UTILITY_HOME} SUB_DIR "src/${BOARD_FAMILY}")
 setup_avr()
 find_srcs()

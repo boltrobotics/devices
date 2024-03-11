@@ -10,6 +10,6 @@ find_srcs()
 build_lib(
   SRCS ${SOURCES}
   ESP_TARGET ${ESP_TARGET}
-  LIBS idf::freertos idf::spi_flash
+  LIBS idf::freertos idf::spi_flash idf::esp_timer
   COMPONENTS freertos esptool_py
   )

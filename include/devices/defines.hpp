@@ -39,22 +39,18 @@ namespace btr
 // Time {
 
 #ifndef BTR_TIME_ENABLED 
-#if BTR_STM32 > 0 || BTR_AVR > 0 || BTR_X86 > 0
+#if BTR_ESP32 > 0 || BTR_STM32 > 0 || BTR_AVR > 0 || BTR_X86 > 0
 #define BTR_TIME_ENABLED        1
-#elif BTR_ARD > 0
+#else
 #define BTR_TIME_ENABLED        0
-#endif // #if BTR_STM32 > 0 || BTR_AVR > 0 || BTR_X86 > 0
-#endif
+#endif // #if BTR_ESP32 > 0 || BTR_STM32 > 0 || BTR_AVR > 0 || BTR_X86 > 0
+#endif // #ifndef BTR_TIME_ENABLED 
 
-#if BTR_ARD > 0
-#define MILLIS()                (millis())
-#define SEC()                   (MILLIS() / 1000)
-#define TIME_DIFF(a,b)             (((UINT32_MAX + a - b) % UINT32_MAX))
-#elif BTR_AVR > 0 || BTR_STM32 > 0
+#if BTR_ESP32 > 0 || BTR_STM32 > 0 || BTR_AVR > 0
 #define MILLIS()                (Time::millis())
 #define SEC()                   (Time::sec())
 #define TIME_DIFF(a,b)          (Time::diff(a, b))
-#endif
+#endif // #if BTR_ESP32 > 0 || BTR_STM32 > 0 || BTR_AVR > 0
 
 /** Check if timeout is greater than 0, if so, check if time window has expired. */
 #define IS_TIMEOUT(timeout_ms, start_ms) \
@@ -107,7 +103,7 @@ namespace btr
 #define LED_OFF() (gpio_set(BTR_BUILTIN_LED_PORT, BTR_BUILTIN_LED_PIN))
 #define LED_TOGGLE() (gpio_toggle(BTR_BUILTIN_LED_PORT, BTR_BUILTIN_LED_PIN))
 
-#elif BTR_AVR > 0 || BTR_ARD > 0
+#elif BTR_AVR > 0
 
 #if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
 #define BTR_BUILTIN_LED_PORT  PORTB
@@ -159,6 +155,8 @@ namespace btr
 #define BTR_DEV_ENONACK         0x00220000
 #define BTR_DEV_EINVAL          0x00240000
 #define BTR_DEV_EINIT           0x00280000
+#define BTR_DEV_EFAIL           0x00400000
+#define BTR_DEV_ENOMEM          0x00410000
 
 #ifndef BTR_STATUS_ENABLED
 #define BTR_STATUS_ENABLED      1
@@ -186,8 +184,9 @@ uint32_t* status();
 #if BTR_I2C0_ENABLED > 0 || BTR_I2C1_ENABLED > 0
 
 //--------------------------------------------------------------------------------------------------
-// AVR/ARD
-#if BTR_AVR > 0 || BTR_ARD > 0
+// AVR
+
+#if BTR_AVR > 0
 #include <util/twi.h>
 
 /** I2C write operation. */
@@ -196,9 +195,32 @@ uint32_t* status();
 #define BTR_I2C_READ                TW_READ
 
 //--------------------------------------------------------------------------------------------------
-// STM32
-#elif BTR_STM32 > 0
+// ESP32
 
+#elif BTR_ESP32 > 0
+#include <driver/i2c_master.h>
+
+/** Default clock doesn't work well when power management is enabled. Change it to fix */
+#ifndef BTR_I2C_CLK_SRC 
+#define BTR_I2C_CLK_SRC             I2C_CLK_SRC_DEFAULT // I2C_CLK_SRC_APB
+#endif
+#ifndef BTR_I2C_MASTER_PORT         0
+#define BTR_I2C_MASTER_PORT 
+#endif
+#ifndef BTR_I2C_MASTER_SCL_IO       
+#define BTR_I2C_MASTER_SCL_IO       12 // Default 22
+#endif
+#ifndef BTR_I2C_MASTER_SDA_IO
+#define BTR_I2C_MASTER_SDA_IO       13 // Default 21
+#endif
+#ifndef BTR_I2C_GLITCH_IGNORE_COUNT
+#define BTR_I2C_GLITCH_IGNORE_COUNT 7
+#endif
+
+//--------------------------------------------------------------------------------------------------
+// STM32
+
+#elif BTR_STM32 > 0
 #include <libopencm3/stm32/i2c.h>
 
 /** Define I2C write operation. */
@@ -206,27 +228,39 @@ uint32_t* status();
 /** Define I2C read operation. */
 #define BTR_I2C_READ                I2C_READ
 
+//--------------------------------------------------------------------------------------------------
+// Other
+
 #else
+
 /** Define I2C write operation. */
 #define BTR_I2C_WRITE               0 
 /** Define I2C read operation. */
 #define BTR_I2C_READ                1
 
-#endif // BTR_AVR > 0 || BTR_ARD > 0 || BTR_STM32 > 0
+#endif // # AVR, ESP32, STM32, Other
 
 //--------------------------------------------------------------------------------------------------
 
 #ifndef BTR_I2C_IO_TIMEOUT_MS
 #define BTR_I2C_IO_TIMEOUT_MS       100
 #endif
+
 /** Warn if time-out is zero. */
 #if BTR_I2C_IO_TIMEOUT_MS == 0
 #error "BTR_I2C_IO_TIMEOUT_MS is 0"
 #endif
-/** Wehn set to 1, bus speed is set to 400kHz, otherwise bus speed is set to 100kHz. */
-#ifndef BTR_I2C_FAST_SPEED
-#define BTR_I2C_FAST_SPEED          0
+
+/** Speed 100kHz or 400kHz. */
+#ifndef BTR_I2C_SPEED
+#define BTR_I2C_SPEED               100000
 #endif
+
+/** Enable internal pull-ups */
+#ifndef BTR_I2C_INTERNAL_PULLUP
+#define BTR_I2C_INTERNAL_PULLUP     true
+#endif
+
 /** Maximum number of devices to scan. Absolute maximum is UINT8_MAX. */
 #ifndef BTR_I2C_SCAN_MAX
 #define BTR_I2C_SCAN_MAX            128

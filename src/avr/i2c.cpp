@@ -39,8 +39,32 @@ I2C* I2C::instance(uint32_t dev_id, bool open)
 
 void I2C::open()
 {
-  //setPullups(true);
-  setSpeed(BTR_I2C_FAST_SPEED);
+  // Set pull-ups. See discussion about external vs internal pull-ups:
+  // http://www.avrfreaks.net/forum/twi-i2c-without-external-pull-resistors:
+
+  if (BTR_I2C_INTERNAL_PULLUP) {
+#if defined(__AVR_ATmega8__) || defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
+    set_bit(PORTC, 4);
+    set_bit(PORTC, 5);
+#elif defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+    // ATmega2560: PD0 (SCL0), PD1 (SDA)
+    set_bit(PORTD, 0);
+    set_bit(PORTD, 1);
+#endif
+  } else {
+#if defined(__AVR_ATmega8__) || defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
+    clear_bit(PORTC, 4);
+    clear_bit(PORTC, 5);
+#elif defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+    clear_bit(PORTD, 0);
+    clear_bit(PORTD, 1);
+#endif
+  }
+
+  // Set speed.
+  clear_bit(TWSR, TWPS0);
+  clear_bit(TWSR, TWPS1);
+  set_reg(TWBR, ((F_CPU / uint32_t(BTR_I2C_SPEED)) - 16) / 2);
 
   // Enable TWI operation and interface.
   set_reg(TWCR, BV(TWEN) | BV(TWEA));
@@ -62,40 +86,6 @@ void I2C::close()
 /////////////////////////////////////////////// PRIVATE ////////////////////////////////////////////
 
 //============================================= OPERATIONS =========================================
-
-void I2C::setPullups(bool activate)
-{
-  // See discussion about external vs internal pull-ups:
-  // http://www.avrfreaks.net/forum/twi-i2c-without-external-pull-resistors:
-
-  if (activate) {
-#if defined(__AVR_ATmega8__) || defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
-    set_bit(PORTC, 4);
-    set_bit(PORTC, 5);
-#elif defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-    // ATmega2560: PD0 (SCL0), PD1 (SDA)
-    set_bit(PORTD, 0);
-    set_bit(PORTD, 1);
-#endif
-  } else {
-#if defined(__AVR_ATmega8__) || defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
-    clear_bit(PORTC, 4);
-    clear_bit(PORTC, 5);
-#elif defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-    clear_bit(PORTD, 0);
-    clear_bit(PORTD, 1);
-#endif
-  }
-}
-
-void I2C::setSpeed(bool fast)
-{
-  // Set prescaler to 1
-  clear_bit(TWSR, TWPS0);
-  clear_bit(TWSR, TWPS1);
-  uint32_t scaler = (fast ? 400000 : 100000);
-  set_reg(TWBR, ((F_CPU / scaler) - 16) / 2);
-}
 
 uint32_t I2C::start(uint8_t addr, uint8_t rw)
 {

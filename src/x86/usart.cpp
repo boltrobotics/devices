@@ -5,7 +5,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 // SYSTEM INCLUDES
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <sys/ioctl.h>
 
 // PROJECT INCLUDES
